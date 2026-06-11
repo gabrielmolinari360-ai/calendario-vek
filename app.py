@@ -9,7 +9,7 @@ from flask_socketio import SocketIO, emit
 
 app = Flask(__name__)
 app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY", "calendario-vek-2026")
-socketio = SocketIO(app, cors_allowed_origins="*")
+socketio = SocketIO(app, cors_allowed_origins="*", async_mode="gevent")
 
 APP_PASS   = os.environ.get("APP_PASSWORD", "veguel2026")
 DATA_FILE  = os.path.join(os.path.dirname(__file__), "data", "eventos.json")
