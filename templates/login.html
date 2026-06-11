@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Calendario VEK — Login</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #1a1f18;
+      font-family: 'Segoe UI', system-ui, sans-serif;
+    }
+    .card {
+      background: #252b22;
+      border: 1px solid #3b4636;
+      border-radius: 16px;
+      padding: 48px 40px;
+      width: 100%;
+      max-width: 380px;
+      text-align: center;
+    }
+    .logo {
+      font-size: 2rem;
+      font-weight: 700;
+      color: #8fbf5a;
+      letter-spacing: 2px;
+      margin-bottom: 6px;
+    }
+    .subtitle {
+      color: #7a8a72;
+      font-size: 0.85rem;
+      margin-bottom: 36px;
+    }
+    label {
+      display: block;
+      text-align: left;
+      font-size: 0.78rem;
+      color: #7a8a72;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 6px;
+    }
+    input {
+      width: 100%;
+      padding: 12px 14px;
+      background: #1a1f18;
+      border: 1px solid #3b4636;
+      border-radius: 8px;
+      color: #d4e0cc;
+      font-size: 0.95rem;
+      margin-bottom: 20px;
+      outline: none;
+      transition: border-color .2s;
+    }
+    input:focus { border-color: #8fbf5a; }
+    button {
+      width: 100%;
+      padding: 13px;
+      background: #4e7c2a;
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background .2s;
+    }
+    button:hover { background: #5e9433; }
+    .error {
+      background: #3b1a1a;
+      border: 1px solid #7a3030;
+      color: #e08080;
+      padding: 10px 14px;
+      border-radius: 8px;
+      font-size: 0.85rem;
+      margin-bottom: 20px;
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="logo">VEK</div>
+    <div class="subtitle">Calendario Compartilhado — Veguel</div>
+
+    {% if error %}
+    <div class="error">{{ error }}</div>
+    {% endif %}
+
+    <form method="POST">
+      <label>Seu nome</label>
+      <input type="text" name="nome" placeholder="Ex: Gabriel" required autocomplete="off" />
+
+      <label>Senha de acesso</label>
+      <input type="password" name="senha" placeholder="••••••••" required />
+
+      <button type="submit">Entrar</button>
+    </form>
+  </div>
+</body>
+</html>

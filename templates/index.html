@@ -1,0 +1,423 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Calendario VEK</title>
+  <link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/index.global.min.css" rel="stylesheet" />
+  <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/index.global.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/locales/pt-br.global.min.js"></script>
+  <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: #1a1f18;
+      color: #d4e0cc;
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      min-height: 100vh;
+    }
+
+    /* --- NAVBAR --- */
+    .navbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 28px;
+      background: #252b22;
+      border-bottom: 1px solid #3b4636;
+    }
+    .navbar .logo { font-size: 1.3rem; font-weight: 700; color: #8fbf5a; letter-spacing: 2px; }
+    .navbar .right { display: flex; align-items: center; gap: 18px; font-size: 0.85rem; color: #7a8a72; }
+    .navbar .right .user { color: #b0c9a0; }
+    .navbar a { color: #7a8a72; text-decoration: none; font-size: 0.82rem; }
+    .navbar a:hover { color: #8fbf5a; }
+    .sync-dot {
+      width: 8px; height: 8px; border-radius: 50%;
+      background: #4e7c2a; display: inline-block;
+      box-shadow: 0 0 6px #4e7c2a;
+    }
+    .sync-dot.off { background: #7a3030; box-shadow: 0 0 6px #7a3030; }
+
+    /* --- CALENDAR WRAPPER --- */
+    .cal-wrapper {
+      padding: 24px 28px;
+    }
+    #calendar {
+      background: #252b22;
+      border-radius: 12px;
+      padding: 20px;
+      border: 1px solid #3b4636;
+    }
+
+    /* FullCalendar overrides */
+    .fc { --fc-border-color: #3b4636; --fc-today-bg-color: rgba(78,124,42,.15); }
+    .fc .fc-toolbar-title { color: #d4e0cc; font-size: 1.1rem; }
+    .fc .fc-button {
+      background: #3b4636 !important; border-color: #3b4636 !important;
+      color: #d4e0cc !important; font-size: 0.8rem !important;
+    }
+    .fc .fc-button:hover { background: #4e7c2a !important; border-color: #4e7c2a !important; }
+    .fc .fc-button-active { background: #4e7c2a !important; border-color: #4e7c2a !important; }
+    .fc-theme-standard td, .fc-theme-standard th { border-color: #3b4636; }
+    .fc .fc-col-header-cell-cushion { color: #7a8a72; font-size: 0.8rem; text-transform: uppercase; }
+    .fc .fc-daygrid-day-number { color: #b0c9a0; font-size: 0.85rem; }
+    .fc .fc-daygrid-day:hover { background: rgba(78,124,42,.08); cursor: pointer; }
+    .fc-event { border-radius: 4px !important; border: none !important; font-size: 0.8rem !important; padding: 2px 6px !important; }
+    .fc-event-title { font-weight: 500; }
+    .fc .fc-list-event:hover td { background: rgba(78,124,42,.12); }
+    .fc .fc-list-day-cushion { background: #2e3629; }
+
+    /* --- MODAL --- */
+    .modal-overlay {
+      display: none;
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,.6);
+      z-index: 1000;
+      align-items: center;
+      justify-content: center;
+    }
+    .modal-overlay.open { display: flex; }
+    .modal {
+      background: #252b22;
+      border: 1px solid #3b4636;
+      border-radius: 14px;
+      padding: 32px;
+      width: 100%;
+      max-width: 440px;
+      position: relative;
+    }
+    .modal h2 { color: #8fbf5a; font-size: 1rem; margin-bottom: 22px; }
+    .modal label {
+      display: block;
+      font-size: 0.75rem;
+      color: #7a8a72;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 5px;
+    }
+    .modal input, .modal textarea, .modal select {
+      width: 100%;
+      padding: 10px 12px;
+      background: #1a1f18;
+      border: 1px solid #3b4636;
+      border-radius: 7px;
+      color: #d4e0cc;
+      font-size: 0.9rem;
+      margin-bottom: 16px;
+      outline: none;
+      font-family: inherit;
+      transition: border-color .2s;
+    }
+    .modal input:focus, .modal textarea:focus, .modal select:focus { border-color: #8fbf5a; }
+    .modal textarea { resize: vertical; min-height: 70px; }
+    .color-row { display: flex; gap: 10px; margin-bottom: 16px; }
+    .color-opt {
+      width: 28px; height: 28px; border-radius: 50%;
+      cursor: pointer; border: 2px solid transparent;
+      transition: border-color .15s;
+    }
+    .color-opt.selected { border-color: #fff; }
+    .modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 4px; }
+    .btn { padding: 9px 20px; border-radius: 7px; font-size: 0.88rem; font-weight: 600; cursor: pointer; border: none; }
+    .btn-primary { background: #4e7c2a; color: #fff; }
+    .btn-primary:hover { background: #5e9433; }
+    .btn-danger { background: #7a3030; color: #fff; }
+    .btn-danger:hover { background: #943a3a; }
+    .btn-cancel { background: #3b4636; color: #b0c9a0; }
+    .btn-cancel:hover { background: #4a5645; }
+    .modal .close-btn {
+      position: absolute; top: 14px; right: 16px;
+      background: none; border: none; color: #7a8a72;
+      font-size: 1.3rem; cursor: pointer; line-height: 1;
+    }
+    .meta-info { font-size: 0.75rem; color: #5a6a52; margin-bottom: 16px; }
+
+    /* --- TOAST --- */
+    #toast {
+      position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%);
+      background: #3b4636; color: #d4e0cc;
+      padding: 10px 22px; border-radius: 30px;
+      font-size: 0.85rem; opacity: 0;
+      transition: opacity .3s;
+      pointer-events: none; z-index: 9999;
+    }
+    #toast.show { opacity: 1; }
+  </style>
+</head>
+<body>
+
+<div class="navbar">
+  <div class="logo">VEK <span style="font-size:.75rem;color:#7a8a72;font-weight:400;letter-spacing:0">Calendario</span></div>
+  <div class="right">
+    <span><span class="sync-dot" id="syncDot"></span> <span id="syncLabel">Conectado</span></span>
+    <span class="user">{{ nome }}</span>
+    <a href="/logout">Sair</a>
+  </div>
+</div>
+
+<div class="cal-wrapper">
+  <div id="calendar"></div>
+</div>
+
+<!-- MODAL CRIAR/EDITAR EVENTO -->
+<div class="modal-overlay" id="modalOverlay">
+  <div class="modal">
+    <button class="close-btn" onclick="closeModal()">×</button>
+    <h2 id="modalTitle">Novo evento</h2>
+
+    <div id="metaInfo" class="meta-info" style="display:none"></div>
+
+    <label>Título</label>
+    <input id="fTitle" type="text" placeholder="Nome do evento" />
+
+    <label>Tipo</label>
+    <select id="fTipo">
+      <option value="">— selecione —</option>
+      <option value="Reunião">Reunião</option>
+      <option value="Visita">Visita</option>
+      <option value="Prazo">Prazo</option>
+      <option value="Lembrete">Lembrete</option>
+      <option value="Outro">Outro</option>
+    </select>
+
+    <label>Início</label>
+    <input id="fStart" type="datetime-local" />
+
+    <label>Fim</label>
+    <input id="fEnd" type="datetime-local" />
+
+    <label>Cor</label>
+    <div class="color-row" id="colorRow"></div>
+
+    <label>Descrição</label>
+    <textarea id="fDesc" placeholder="Detalhes opcionais..."></textarea>
+
+    <div class="modal-actions">
+      <button class="btn btn-danger" id="btnDelete" style="display:none" onclick="deleteEvento()">Excluir</button>
+      <button class="btn btn-cancel" onclick="closeModal()">Cancelar</button>
+      <button class="btn btn-primary" onclick="saveEvento()">Salvar</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+const COLORS = ["#3B6E3A","#2563eb","#7c3aed","#db2777","#ea580c","#ca8a04","#0891b2","#64748b"];
+let selectedColor = COLORS[0];
+let editingId = null;
+let calendar;
+
+// ---- Socket.IO ----
+const socket = io();
+socket.on("connect", () => setSyncStatus(true));
+socket.on("disconnect", () => setSyncStatus(false));
+
+socket.on("evento_criado", ev => {
+  calendar.addEvent(toFCEvent(ev));
+  toast("Novo evento adicionado por " + (ev.criado_por || "alguém"));
+});
+socket.on("evento_editado", ev => {
+  const existing = calendar.getEventById(ev.id);
+  if (existing) { existing.remove(); calendar.addEvent(toFCEvent(ev)); }
+});
+socket.on("evento_deletado", data => {
+  const existing = calendar.getEventById(data.id);
+  if (existing) existing.remove();
+});
+
+function setSyncStatus(on) {
+  document.getElementById("syncDot").className = "sync-dot" + (on ? "" : " off");
+  document.getElementById("syncLabel").textContent = on ? "Conectado" : "Desconectado";
+}
+
+// ---- FullCalendar ----
+document.addEventListener("DOMContentLoaded", async () => {
+  buildColorRow();
+  const eventos = await fetch("/api/eventos").then(r => r.json());
+
+  calendar = new FullCalendar.Calendar(document.getElementById("calendar"), {
+    locale: "pt-br",
+    initialView: "dayGridMonth",
+    headerToolbar: {
+      left: "prev,next today",
+      center: "title",
+      right: "dayGridMonth,timeGridWeek,timeGridDay,listWeek"
+    },
+    editable: true,
+    selectable: true,
+    height: "auto",
+    events: eventos.map(toFCEvent),
+
+    // Clica num dia vazio → criar
+    dateClick(info) {
+      openModal(null, info.dateStr);
+    },
+    // Clica num evento → editar
+    eventClick(info) {
+      openModal(info.event);
+    },
+    // Arrasta ou redimensiona → atualiza
+    eventDrop(info) {
+      updateEventDates(info.event);
+    },
+    eventResize(info) {
+      updateEventDates(info.event);
+    },
+  });
+
+  calendar.render();
+});
+
+function toFCEvent(ev) {
+  return {
+    id: ev.id,
+    title: ev.title,
+    start: ev.start,
+    end: ev.end || undefined,
+    allDay: ev.allDay || false,
+    color: ev.color || COLORS[0],
+    extendedProps: {
+      descricao: ev.descricao,
+      tipo: ev.tipo,
+      criado_por: ev.criado_por,
+      criado_em: ev.criado_em,
+      editado_por: ev.editado_por,
+      editado_em: ev.editado_em,
+    }
+  };
+}
+
+// ---- Modal ----
+function openModal(event, dateStr) {
+  editingId = null;
+  document.getElementById("modalTitle").textContent = event ? "Editar evento" : "Novo evento";
+  document.getElementById("btnDelete").style.display = event ? "inline-flex" : "none";
+  document.getElementById("metaInfo").style.display = "none";
+
+  if (event) {
+    editingId = event.id;
+    document.getElementById("fTitle").value = event.title || "";
+    document.getElementById("fTipo").value = event.extendedProps.tipo || "";
+    document.getElementById("fStart").value = toLocalInput(event.start);
+    document.getElementById("fEnd").value = event.end ? toLocalInput(event.end) : "";
+    document.getElementById("fDesc").value = event.extendedProps.descricao || "";
+    setColor(event.backgroundColor || COLORS[0]);
+
+    const meta = document.getElementById("metaInfo");
+    const parts = [];
+    if (event.extendedProps.criado_por) parts.push("Criado por " + event.extendedProps.criado_por + (event.extendedProps.criado_em ? " em " + event.extendedProps.criado_em : ""));
+    if (event.extendedProps.editado_por) parts.push("Editado por " + event.extendedProps.editado_por + (event.extendedProps.editado_em ? " em " + event.extendedProps.editado_em : ""));
+    if (parts.length) { meta.textContent = parts.join(" · "); meta.style.display = "block"; }
+  } else {
+    document.getElementById("fTitle").value = "";
+    document.getElementById("fTipo").value = "";
+    document.getElementById("fStart").value = dateStr ? dateStr.substring(0, 16) : "";
+    document.getElementById("fEnd").value = "";
+    document.getElementById("fDesc").value = "";
+    setColor(COLORS[0]);
+  }
+
+  document.getElementById("modalOverlay").classList.add("open");
+  setTimeout(() => document.getElementById("fTitle").focus(), 100);
+}
+
+function closeModal() {
+  document.getElementById("modalOverlay").classList.remove("open");
+  editingId = null;
+}
+
+async function saveEvento() {
+  const title = document.getElementById("fTitle").value.trim();
+  if (!title) { document.getElementById("fTitle").focus(); return; }
+
+  const payload = {
+    title,
+    start: document.getElementById("fStart").value,
+    end: document.getElementById("fEnd").value || null,
+    color: selectedColor,
+    descricao: document.getElementById("fDesc").value.trim(),
+    tipo: document.getElementById("fTipo").value,
+    allDay: false,
+  };
+
+  if (editingId) {
+    await fetch("/api/eventos/" + editingId, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
+    });
+  } else {
+    await fetch("/api/eventos", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
+    });
+  }
+  closeModal();
+}
+
+async function deleteEvento() {
+  if (!editingId) return;
+  if (!confirm("Excluir este evento?")) return;
+  await fetch("/api/eventos/" + editingId, { method: "DELETE" });
+  closeModal();
+}
+
+async function updateEventDates(event) {
+  await fetch("/api/eventos/" + event.id, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      title: event.title,
+      start: event.start ? event.start.toISOString() : "",
+      end: event.end ? event.end.toISOString() : null,
+      color: event.backgroundColor,
+      descricao: event.extendedProps.descricao,
+      tipo: event.extendedProps.tipo,
+      allDay: event.allDay,
+    })
+  });
+}
+
+// ---- Color picker ----
+function buildColorRow() {
+  const row = document.getElementById("colorRow");
+  COLORS.forEach(c => {
+    const d = document.createElement("div");
+    d.className = "color-opt" + (c === selectedColor ? " selected" : "");
+    d.style.background = c;
+    d.onclick = () => setColor(c);
+    row.appendChild(d);
+  });
+}
+
+function setColor(c) {
+  selectedColor = c;
+  document.querySelectorAll(".color-opt").forEach(d => {
+    d.classList.toggle("selected", d.style.background === c || d.style.backgroundColor === c);
+  });
+}
+
+// ---- Helpers ----
+function toLocalInput(date) {
+  if (!date) return "";
+  const d = new Date(date);
+  const pad = n => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+function toast(msg) {
+  const t = document.getElementById("toast");
+  t.textContent = msg;
+  t.classList.add("show");
+  setTimeout(() => t.classList.remove("show"), 3000);
+}
+
+// Fecha modal clicando fora
+document.getElementById("modalOverlay").addEventListener("click", e => {
+  if (e.target === document.getElementById("modalOverlay")) closeModal();
+});
+</script>
+</body>
+</html>
