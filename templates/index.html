@@ -6,202 +6,512 @@
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="VEK" />
-  <meta name="theme-color" content="#252b22" />
-  <title>Calendario VEK</title>
+  <meta name="theme-color" content="#3F4738" />
+  <title>VEK — Veguel Imóveis</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/index.global.min.css" rel="stylesheet" />
   <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/index.global.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/locales/pt-br.global.min.js"></script>
   <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
     body {
-      background: #1a1f18;
-      color: #d4e0cc;
-      font-family: 'Segoe UI', system-ui, sans-serif;
+      background: #2A2F25;
+      color: #F0F2ED;
+      font-family: 'Inter', system-ui, -apple-system, sans-serif;
       min-height: 100vh;
       min-height: 100dvh;
+      -webkit-font-smoothing: antialiased;
     }
 
-    /* --- NAVBAR --- */
+    /* ── NAVBAR ── */
     .navbar {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      padding: 14px 28px;
-      padding-top: calc(14px + env(safe-area-inset-top));
-      background: #252b22;
-      border-bottom: 1px solid #3b4636;
+      padding: 0 28px;
+      height: 58px;
+      padding-top: env(safe-area-inset-top);
+      background: #3F4738;
+      border-bottom: 1px solid rgba(191,204,182,0.14);
       position: sticky;
       top: 0;
       z-index: 200;
     }
-    .navbar .logo { font-size: 1.3rem; font-weight: 700; color: #8fbf5a; letter-spacing: 2px; }
-    .navbar .right { display: flex; align-items: center; gap: 18px; font-size: 0.85rem; color: #7a8a72; }
-    .navbar .right .user { color: #b0c9a0; }
-    .navbar a { color: #7a8a72; text-decoration: none; font-size: 0.82rem; }
-    .navbar a:hover { color: #8fbf5a; }
-    .sync-dot {
-      width: 8px; height: 8px; border-radius: 50%;
-      background: #4e7c2a; display: inline-block;
-      box-shadow: 0 0 6px #4e7c2a;
+    .logo {
+      display: flex;
+      align-items: baseline;
+      gap: 10px;
     }
-    .sync-dot.off { background: #7a3030; box-shadow: 0 0 6px #7a3030; }
+    .logo-name {
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: #F0F2ED;
+      letter-spacing: 3px;
+      text-transform: uppercase;
+    }
+    .logo-divider {
+      width: 1px;
+      height: 14px;
+      background: rgba(191,204,182,0.3);
+      align-self: center;
+    }
+    .logo-sub {
+      font-size: 0.7rem;
+      font-weight: 400;
+      color: #BFCCB6;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+    }
+    .navbar-right {
+      display: flex;
+      align-items: center;
+      gap: 20px;
+    }
+    .sync-badge {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.75rem;
+      color: #BFCCB6;
+      font-weight: 400;
+    }
+    .sync-dot {
+      width: 7px; height: 7px;
+      border-radius: 50%;
+      background: #6EBD6A;
+      box-shadow: 0 0 8px rgba(110,189,106,0.7);
+      flex-shrink: 0;
+    }
+    .sync-dot.off { background: #E57373; box-shadow: 0 0 8px rgba(229,115,115,0.7); }
+    .nav-user {
+      font-size: 0.82rem;
+      font-weight: 500;
+      color: #F0F2ED;
+    }
+    .nav-link {
+      font-size: 0.8rem;
+      color: rgba(191,204,182,0.7);
+      text-decoration: none;
+      font-weight: 400;
+      transition: color .15s;
+    }
+    .nav-link:hover { color: #F0F2ED; }
 
-    /* --- CALENDAR WRAPPER --- */
+    /* ── CALENDAR WRAPPER ── */
     .cal-wrapper {
-      padding: 24px 28px;
+      padding: 20px 24px;
       padding-bottom: calc(24px + env(safe-area-inset-bottom));
+      max-width: 1400px;
+      margin: 0 auto;
     }
     #calendar {
-      background: #252b22;
-      border-radius: 12px;
+      background: #3F4738;
+      border-radius: 14px;
       padding: 20px;
-      border: 1px solid #3b4636;
+      border: 1px solid rgba(191,204,182,0.14);
     }
 
-    /* FullCalendar overrides */
-    .fc { --fc-border-color: #3b4636; --fc-today-bg-color: rgba(78,124,42,.15); }
-    .fc .fc-toolbar-title { color: #d4e0cc; font-size: 1.1rem; }
+    /* ── FULLCALENDAR OVERRIDES ── */
+    .fc {
+      --fc-border-color: rgba(191,204,182,0.16);
+      --fc-today-bg-color: rgba(191,204,182,0.09);
+      --fc-neutral-bg-color: rgba(42,47,37,0.5);
+      --fc-list-event-hover-bg-color: rgba(191,204,182,0.06);
+      --fc-page-bg-color: transparent;
+    }
+    .fc .fc-toolbar-title {
+      color: #F0F2ED;
+      font-size: 1rem;
+      font-weight: 600;
+      font-family: 'Inter', sans-serif;
+    }
     .fc .fc-button {
-      background: #3b4636 !important; border-color: #3b4636 !important;
-      color: #d4e0cc !important; font-size: 0.8rem !important;
+      background: rgba(191,204,182,0.1) !important;
+      border: 1px solid rgba(191,204,182,0.18) !important;
+      color: #BFCCB6 !important;
+      font-size: 0.77rem !important;
+      font-weight: 500 !important;
+      font-family: 'Inter', sans-serif !important;
+      border-radius: 6px !important;
+      padding: 5px 12px !important;
+      transition: all .15s !important;
+      letter-spacing: 0.2px !important;
     }
-    .fc .fc-button:hover { background: #4e7c2a !important; border-color: #4e7c2a !important; }
-    .fc .fc-button-active { background: #4e7c2a !important; border-color: #4e7c2a !important; }
-    .fc-theme-standard td, .fc-theme-standard th { border-color: #3b4636; }
-    .fc .fc-col-header-cell-cushion { color: #7a8a72; font-size: 0.8rem; text-transform: uppercase; }
-    .fc .fc-daygrid-day-number { color: #b0c9a0; font-size: 0.85rem; }
-    .fc .fc-daygrid-day:hover { background: rgba(78,124,42,.08); cursor: pointer; }
-    .fc-event { border-radius: 4px !important; border: none !important; font-size: 0.8rem !important; padding: 2px 6px !important; }
+    .fc .fc-button:hover {
+      background: rgba(191,204,182,0.2) !important;
+      color: #F0F2ED !important;
+      border-color: rgba(191,204,182,0.3) !important;
+    }
+    .fc .fc-button-active, .fc .fc-button:focus {
+      background: rgba(191,204,182,0.85) !important;
+      border-color: rgba(191,204,182,0.85) !important;
+      color: #2A2F25 !important;
+      box-shadow: none !important;
+    }
+    .fc-theme-standard td, .fc-theme-standard th {
+      border-color: rgba(191,204,182,0.14);
+    }
+    .fc .fc-scrollgrid { border-color: rgba(191,204,182,0.14); }
+    .fc .fc-col-header-cell-cushion {
+      color: rgba(191,204,182,0.6);
+      font-size: 0.7rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      padding: 8px 4px;
+    }
+    .fc .fc-daygrid-day-number {
+      color: #BFCCB6;
+      font-size: 0.8rem;
+      font-weight: 500;
+      padding: 6px 8px;
+    }
+    .fc .fc-day-today .fc-daygrid-day-number {
+      color: #F0F2ED;
+      font-weight: 700;
+    }
+    .fc .fc-daygrid-day:hover { background: rgba(191,204,182,0.04); cursor: pointer; }
+    .fc-event {
+      border-radius: 5px !important;
+      border: none !important;
+      font-size: 0.75rem !important;
+      padding: 2px 7px !important;
+      font-weight: 500 !important;
+      font-family: 'Inter', sans-serif !important;
+      cursor: pointer;
+    }
     .fc-event-title { font-weight: 500; }
-    .fc .fc-list-event:hover td { background: rgba(78,124,42,.12); }
-    .fc .fc-list-day-cushion { background: #2e3629; }
+    .fc .fc-list-day-cushion {
+      background: rgba(0,0,0,0.3);
+      color: rgba(191,204,182,0.8);
+      font-weight: 600;
+      font-size: 0.78rem;
+      font-family: 'Inter', sans-serif;
+      letter-spacing: 0.5px;
+    }
+    .fc .fc-list-event-title a {
+      color: #F0F2ED;
+      font-weight: 500;
+      font-size: 0.88rem;
+      text-decoration: none;
+    }
+    .fc .fc-list-event-time {
+      color: rgba(191,204,182,0.65);
+      font-size: 0.78rem;
+    }
+    .fc .fc-list-empty-cushion { color: #BFCCB6; }
 
-    /* --- MODAL --- */
+    /* Done state – list view */
+    .fc .fc-list-event.ev-done { opacity: 0.45; }
+    .fc .fc-list-event.ev-done .fc-list-event-title a { text-decoration: line-through; }
+    /* Done state – grid view */
+    .fc-daygrid-event.ev-done,
+    .fc-timegrid-event.ev-done { opacity: 0.42 !important; }
+    .fc-daygrid-event.ev-done .fc-event-title,
+    .fc-timegrid-event.ev-done .fc-event-title { text-decoration: line-through; }
+
+    /* Tick button (on events) */
+    .ev-tick {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 16px; height: 16px;
+      border-radius: 50%;
+      border: 1.5px solid rgba(255,255,255,0.45);
+      background: transparent;
+      color: transparent;
+      font-size: 9px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all .15s;
+      flex-shrink: 0;
+      padding: 0;
+      line-height: 1;
+      vertical-align: middle;
+    }
+    .ev-tick:hover {
+      border-color: rgba(255,255,255,0.85);
+      background: rgba(255,255,255,0.18);
+      color: rgba(255,255,255,0.9);
+    }
+    .ev-tick.is-done {
+      background: rgba(255,255,255,0.92);
+      border-color: rgba(255,255,255,0.92);
+      color: #2A2F25;
+    }
+    /* Tick in list view cell */
+    .fc .fc-list-event-graphic {
+      width: 40px;
+      text-align: center;
+      vertical-align: middle;
+    }
+
+    /* ── MODAL ── */
     .modal-overlay {
       display: none;
       position: fixed; inset: 0;
-      background: rgba(0,0,0,.65);
-      -webkit-backdrop-filter: blur(3px);
-      backdrop-filter: blur(3px);
+      background: rgba(0,0,0,.72);
+      -webkit-backdrop-filter: blur(4px);
+      backdrop-filter: blur(4px);
       z-index: 1000;
       align-items: center;
       justify-content: center;
     }
     .modal-overlay.open { display: flex; }
     .modal {
-      background: #252b22;
-      border: 1px solid #3b4636;
-      border-radius: 14px;
-      padding: 32px;
+      background: #3F4738;
+      border: 1px solid rgba(191,204,182,0.18);
+      border-radius: 18px;
+      padding: 28px 28px 24px;
       width: 100%;
-      max-width: 440px;
+      max-width: 450px;
       position: relative;
       animation: modalIn 0.22s ease;
     }
     @keyframes modalIn {
-      from { opacity: 0; transform: scale(0.96) translateY(8px); }
-      to   { opacity: 1; transform: scale(1)    translateY(0);   }
+      from { opacity: 0; transform: scale(0.95) translateY(10px); }
+      to   { opacity: 1; transform: scale(1)    translateY(0);    }
     }
     .modal-handle { display: none; }
-    .modal h2 { color: #8fbf5a; font-size: 1rem; margin-bottom: 22px; }
+    .modal-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 20px;
+    }
+    .modal h2 {
+      color: #F0F2ED;
+      font-size: 1rem;
+      font-weight: 600;
+      margin: 0;
+      letter-spacing: 0.2px;
+    }
+    .modal-close {
+      background: none;
+      border: none;
+      color: rgba(191,204,182,0.5);
+      font-size: 1.3rem;
+      cursor: pointer;
+      padding: 2px 6px;
+      border-radius: 6px;
+      line-height: 1;
+      transition: color .15s, background .15s;
+    }
+    .modal-close:hover { color: #F0F2ED; background: rgba(191,204,182,0.1); }
+
+    /* Meta info */
+    .meta-info {
+      font-size: 0.72rem;
+      color: rgba(191,204,182,0.5);
+      margin-bottom: 14px;
+      padding: 8px 11px;
+      background: rgba(42,47,37,0.5);
+      border-radius: 8px;
+      line-height: 1.65;
+    }
+
+    /* Done toggle */
+    .btn-done-toggle {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 13px;
+      background: rgba(191,204,182,0.06);
+      border: 1px solid rgba(191,204,182,0.18);
+      border-radius: 9px;
+      color: #BFCCB6;
+      font-size: 0.86rem;
+      font-family: 'Inter', sans-serif;
+      cursor: pointer;
+      margin-bottom: 14px;
+      transition: all .2s;
+      text-align: left;
+      font-weight: 400;
+    }
+    .btn-done-toggle .done-circle {
+      width: 18px; height: 18px;
+      border-radius: 50%;
+      border: 1.5px solid rgba(191,204,182,0.4);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 10px; font-weight: 700;
+      color: transparent;
+      flex-shrink: 0;
+      transition: all .2s;
+    }
+    .btn-done-toggle.active {
+      background: rgba(110,189,106,0.1);
+      border-color: rgba(110,189,106,0.35);
+      color: #9DDBA3;
+    }
+    .btn-done-toggle.active .done-circle {
+      background: #6EBD6A;
+      border-color: #6EBD6A;
+      color: #2A2F25;
+    }
+
+    /* Form elements */
     .modal label {
       display: block;
-      font-size: 0.75rem;
-      color: #7a8a72;
+      font-size: 0.69rem;
+      color: rgba(191,204,182,0.65);
       text-transform: uppercase;
-      letter-spacing: 1px;
+      letter-spacing: 1.2px;
       margin-bottom: 5px;
+      font-weight: 600;
     }
     .modal input, .modal textarea, .modal select {
       width: 100%;
       padding: 10px 12px;
-      background: #1a1f18;
-      border: 1px solid #3b4636;
-      border-radius: 7px;
-      color: #d4e0cc;
+      background: rgba(42,47,37,0.7);
+      border: 1px solid rgba(191,204,182,0.18);
+      border-radius: 9px;
+      color: #F0F2ED;
       font-size: 0.9rem;
-      margin-bottom: 16px;
+      font-family: 'Inter', sans-serif;
+      margin-bottom: 14px;
       outline: none;
-      font-family: inherit;
       transition: border-color .2s;
+      -webkit-appearance: none;
+      appearance: none;
     }
-    .modal input:focus, .modal textarea:focus, .modal select:focus { border-color: #8fbf5a; }
-    .modal textarea { resize: vertical; min-height: 70px; }
-    .color-row { display: flex; gap: 10px; margin-bottom: 16px; flex-wrap: wrap; }
-    .color-opt {
-      width: 28px; height: 28px; border-radius: 50%;
-      cursor: pointer; border: 2px solid transparent;
-      transition: border-color .15s, transform .1s;
+    .modal select {
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath fill='%23BFCCB6' d='M1 1l5 5 5-5'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 12px center;
+      padding-right: 32px;
     }
-    .color-opt:active { transform: scale(0.85); }
-    .color-opt.selected { border-color: #fff; }
-    .modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 4px; }
-    .btn { padding: 9px 20px; border-radius: 7px; font-size: 0.88rem; font-weight: 600; cursor: pointer; border: none; transition: background .15s; }
-    .btn-primary { background: #4e7c2a; color: #fff; }
-    .btn-primary:hover { background: #5e9433; }
-    .btn-danger { background: #7a3030; color: #fff; }
-    .btn-danger:hover { background: #943a3a; }
-    .btn-cancel { background: #3b4636; color: #b0c9a0; }
-    .btn-cancel:hover { background: #4a5645; }
-    .modal .close-btn {
-      position: absolute; top: 14px; right: 16px;
-      background: none; border: none; color: #7a8a72;
-      font-size: 1.3rem; cursor: pointer; line-height: 1;
-      padding: 4px 8px;
+    .modal select option { background: #3F4738; color: #F0F2ED; }
+    .modal input:focus, .modal textarea:focus, .modal select:focus {
+      border-color: rgba(191,204,182,0.5);
+      background: rgba(42,47,37,0.9);
     }
-    .modal .close-btn:hover { color: #d4e0cc; }
-    .meta-info { font-size: 0.75rem; color: #5a6a52; margin-bottom: 16px; }
+    .modal textarea { resize: vertical; min-height: 68px; }
 
-    /* --- TOAST --- */
+    /* Type indicator strip */
+    .type-strip {
+      display: none;
+      height: 3px;
+      border-radius: 2px;
+      margin: -10px 0 14px;
+      transition: background .2s;
+    }
+    .type-strip.visible { display: block; }
+
+    /* Actions */
+    .modal-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 6px; }
+    .btn {
+      padding: 9px 20px;
+      border-radius: 8px;
+      font-size: 0.86rem;
+      font-weight: 600;
+      font-family: 'Inter', sans-serif;
+      cursor: pointer;
+      border: none;
+      transition: all .15s;
+      letter-spacing: 0.1px;
+    }
+    .btn-primary { background: #BFCCB6; color: #2A2F25; }
+    .btn-primary:hover { background: #D0DAC9; }
+    .btn-primary:active { transform: scale(0.97); }
+    .btn-danger {
+      background: rgba(239,68,68,0.12);
+      color: #F87171;
+      border: 1px solid rgba(239,68,68,0.28);
+    }
+    .btn-danger:hover { background: rgba(239,68,68,0.22); }
+    .btn-cancel {
+      background: rgba(191,204,182,0.08);
+      color: rgba(191,204,182,0.8);
+      border: 1px solid rgba(191,204,182,0.14);
+    }
+    .btn-cancel:hover { background: rgba(191,204,182,0.15); color: #F0F2ED; }
+
+    /* ── TOAST ── */
     #toast {
       position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%);
-      background: #3b4636; color: #d4e0cc;
-      padding: 10px 22px; border-radius: 30px;
-      font-size: 0.85rem; opacity: 0;
+      background: #3F4738;
+      border: 1px solid rgba(191,204,182,0.22);
+      color: #F0F2ED;
+      padding: 10px 22px;
+      border-radius: 30px;
+      font-size: 0.83rem;
+      font-family: 'Inter', sans-serif;
+      font-weight: 400;
+      opacity: 0;
       transition: opacity .3s;
-      pointer-events: none; z-index: 9999;
+      pointer-events: none;
+      z-index: 9999;
       white-space: nowrap;
       max-width: calc(100vw - 40px);
       overflow: hidden;
       text-overflow: ellipsis;
+      box-shadow: 0 4px 24px rgba(0,0,0,.45);
     }
     #toast.show { opacity: 1; }
 
-    /* --- FAB (novo evento — visível só no mobile) --- */
+    /* ── FAB ── */
     .fab {
       display: none;
       position: fixed;
       bottom: calc(24px + env(safe-area-inset-bottom));
       right: 20px;
       width: 56px; height: 56px;
-      background: #4e7c2a;
-      color: #fff;
+      background: #BFCCB6;
+      color: #2A2F25;
       border: none;
       border-radius: 50%;
-      font-size: 2rem;
+      font-size: 1.8rem;
+      font-weight: 300;
       line-height: 1;
       cursor: pointer;
       z-index: 500;
       align-items: center;
       justify-content: center;
-      box-shadow: 0 4px 20px rgba(0,0,0,.5), 0 0 0 1px rgba(143,191,90,.2);
+      box-shadow: 0 4px 20px rgba(0,0,0,.5), 0 0 0 1px rgba(191,204,182,0.3);
       transition: background .15s, transform .1s;
+      font-family: 'Inter', sans-serif;
     }
     .fab:active { transform: scale(0.91); }
+    .fab:hover { background: #D0DAC9; }
 
-    /* ===== MOBILE ===== */
+    /* ── TYPE LEGEND (desktop only) ── */
+    .type-legend {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      padding: 10px 20px;
+      flex-wrap: wrap;
+    }
+    .type-legend-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.73rem;
+      color: rgba(191,204,182,0.7);
+      font-weight: 500;
+    }
+    .type-legend-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    /* ── MOBILE ── */
     @media (max-width: 600px) {
-
-      /* Navbar compacta */
       .navbar {
-        padding: 10px 16px;
-        padding-top: calc(10px + env(safe-area-inset-top));
+        height: auto;
+        padding: 11px 16px;
+        padding-top: calc(11px + env(safe-area-inset-top));
       }
-      .navbar .logo { font-size: 1.1rem; letter-spacing: 1px; }
-      .navbar .logo .logo-sub { display: none; }
-      .navbar .right { gap: 10px; }
-      .navbar .right .user {
+      .logo-name { font-size: 0.95rem; letter-spacing: 2px; }
+      .logo-divider, .logo-sub { display: none; }
+      .navbar-right { gap: 12px; }
+      .nav-user {
         max-width: 80px;
         overflow: hidden;
         text-overflow: ellipsis;
@@ -209,28 +519,26 @@
         font-size: 0.78rem;
       }
       .sync-label { display: none; }
-      .navbar a { font-size: 0.8rem; }
+      .nav-link { font-size: 0.78rem; }
+      .type-legend { display: none; }
 
-      /* Calendário */
       .cal-wrapper {
         padding: 10px 8px;
         padding-bottom: calc(90px + env(safe-area-inset-bottom));
       }
-      #calendar { padding: 10px 6px; border-radius: 10px; }
+      #calendar { padding: 10px 6px; border-radius: 12px; }
 
-      /* FullCalendar mobile */
-      .fc .fc-toolbar-title { font-size: 0.9rem; }
-      .fc .fc-button { padding: 5px 9px !important; font-size: 0.73rem !important; }
-      .fc .fc-col-header-cell-cushion { font-size: 0.7rem; }
-      .fc .fc-daygrid-day-number { font-size: 0.75rem; }
-      .fc-event { font-size: 0.7rem !important; padding: 1px 4px !important; }
-      .fc .fc-list-event td { padding: 8px 10px; }
-      .fc .fc-list-day-cushion { padding: 8px 12px; font-size: 0.8rem; }
+      .fc .fc-toolbar-title { font-size: 0.88rem; }
+      .fc .fc-button { padding: 5px 9px !important; font-size: 0.71rem !important; }
+      .fc .fc-col-header-cell-cushion { font-size: 0.66rem; }
+      .fc .fc-daygrid-day-number { font-size: 0.72rem; }
+      .fc-event { font-size: 0.68rem !important; padding: 1px 4px !important; }
+      .fc .fc-list-event td { padding: 9px 8px; }
+      .fc .fc-list-day-cushion { padding: 8px 12px; }
 
-      /* Modal → bottom sheet */
       .modal-overlay { align-items: flex-end; }
       .modal {
-        border-radius: 20px 20px 0 0;
+        border-radius: 22px 22px 0 0;
         border-bottom: none;
         padding: 0 20px calc(28px + env(safe-area-inset-bottom));
         max-height: 93dvh;
@@ -242,75 +550,90 @@
       .modal-handle {
         display: block;
         width: 40px; height: 4px;
-        background: #4a5645;
+        background: rgba(191,204,182,0.28);
         border-radius: 2px;
-        margin: 14px auto 20px;
-        flex-shrink: 0;
+        margin: 14px auto 18px;
       }
-      .modal h2 { margin-top: 0; }
-      .modal .close-btn { display: none; }
-
-      /* Inputs ≥16 px evita zoom no iOS */
+      .modal-close { display: none; }
       .modal input, .modal textarea, .modal select {
-        font-size: 16px;
+        font-size: 16px; /* prevent iOS zoom */
         padding: 12px 14px;
-        margin-bottom: 14px;
+        margin-bottom: 12px;
       }
-
-      /* Botões full-width empilhados */
       .modal-actions {
         flex-direction: column-reverse;
         gap: 8px;
-        margin-top: 8px;
+        margin-top: 10px;
       }
       .modal-actions .btn {
         width: 100%;
         padding: 13px;
         font-size: 0.92rem;
-        border-radius: 9px;
+        border-radius: 10px;
       }
-      /* Bolinhas de cor maiores (toque mais fácil) */
-      .color-opt { width: 34px; height: 34px; }
-
-      /* Toast acima do FAB */
-      #toast { bottom: calc(92px + env(safe-area-inset-bottom)); }
-
-      /* FAB visível */
+      #toast { bottom: calc(94px + env(safe-area-inset-bottom)); }
       .fab { display: flex; }
     }
 
     @keyframes modalSlideUp {
-      from { transform: translateY(100%); opacity: 0.6; }
+      from { transform: translateY(100%); opacity: 0.7; }
       to   { transform: translateY(0);    opacity: 1;   }
     }
   </style>
 </head>
 <body>
 
+<!-- NAVBAR -->
 <div class="navbar">
-  <div class="logo">VEK <span class="logo-sub" style="font-size:.75rem;color:#7a8a72;font-weight:400;letter-spacing:0">Calendario</span></div>
-  <div class="right">
-    <span><span class="sync-dot" id="syncDot"></span> <span class="sync-label" id="syncLabel">Conectado</span></span>
-    <span class="user">{{ nome }}</span>
-    <a href="/logout">Sair</a>
+  <div class="logo">
+    <span class="logo-name">VEK</span>
+    <span class="logo-divider"></span>
+    <span class="logo-sub">Veguel</span>
+  </div>
+  <div class="navbar-right">
+    <span class="sync-badge">
+      <span class="sync-dot" id="syncDot"></span>
+      <span class="sync-label" id="syncLabel">Sincronizado</span>
+    </span>
+    <span class="nav-user">{{ nome }}</span>
+    <a class="nav-link" href="/logout">Sair</a>
   </div>
 </div>
 
+<!-- CALENDAR -->
 <div class="cal-wrapper">
+  <!-- Legenda de tipos (desktop) -->
+  <div class="type-legend">
+    <span class="type-legend-item"><span class="type-legend-dot" style="background:#60A5FA"></span>Venda</span>
+    <span class="type-legend-item"><span class="type-legend-dot" style="background:#A78BFA"></span>Locação</span>
+    <span class="type-legend-item"><span class="type-legend-dot" style="background:#F87171"></span>Alerta</span>
+    <span class="type-legend-item"><span class="type-legend-dot" style="background:#FBBF24"></span>Outros</span>
+  </div>
   <div id="calendar"></div>
 </div>
 
-<!-- FAB: abre modal com data de hoje (somente mobile) -->
+<!-- FAB (mobile) -->
 <button class="fab" onclick="openNewEvent()" title="Novo evento">+</button>
 
 <!-- MODAL CRIAR/EDITAR EVENTO -->
 <div class="modal-overlay" id="modalOverlay">
   <div class="modal">
     <span class="modal-handle"></span>
-    <button class="close-btn" onclick="closeModal()">×</button>
-    <h2 id="modalTitle">Novo evento</h2>
+
+    <div class="modal-header">
+      <h2 id="modalTitle">Novo evento</h2>
+      <button class="modal-close" onclick="closeModal()">×</button>
+    </div>
 
     <div id="metaInfo" class="meta-info" style="display:none"></div>
+
+    <!-- Botão de concluído (somente modo edição) -->
+    <div id="doneSection" style="display:none">
+      <button class="btn-done-toggle" id="btnDone" type="button" onclick="toggleDoneInModal()">
+        <span class="done-circle"></span>
+        <span class="done-label">Marcar como concluído</span>
+      </button>
+    </div>
 
     <label>Título</label>
     <input id="fTitle" type="text" placeholder="Nome do evento" />
@@ -318,21 +641,18 @@
     <label>Tipo</label>
     <select id="fTipo">
       <option value="">— selecione —</option>
-      <option value="Reunião">Reunião</option>
-      <option value="Visita">Visita</option>
-      <option value="Prazo">Prazo</option>
-      <option value="Lembrete">Lembrete</option>
-      <option value="Outro">Outro</option>
+      <option value="Venda">Venda</option>
+      <option value="Locação">Locação</option>
+      <option value="Alerta">Alerta</option>
+      <option value="Outros">Outros</option>
     </select>
+    <div class="type-strip" id="typeStrip"></div>
 
     <label>Início</label>
     <input id="fStart" type="datetime-local" />
 
     <label>Fim</label>
     <input id="fEnd" type="datetime-local" />
-
-    <label>Cor</label>
-    <div class="color-row" id="colorRow"></div>
 
     <label>Descrição</label>
     <textarea id="fDesc" placeholder="Detalhes opcionais..."></textarea>
@@ -348,39 +668,48 @@
 <div id="toast"></div>
 
 <script>
-const COLORS = ["#3B6E3A","#2563eb","#7c3aed","#db2777","#ea580c","#ca8a04","#0891b2","#64748b"];
-let selectedColor = COLORS[0];
+// ── Tipos e cores fixas ──
+const TYPE_COLORS = {
+  "Venda":   "#60A5FA",
+  "Locação": "#A78BFA",
+  "Alerta":  "#F87171",
+  "Outros":  "#FBBF24",
+};
+
+function getTypeColor(tipo) {
+  return TYPE_COLORS[tipo] || TYPE_COLORS["Outros"];
+}
+
+let isDone = false;
 let editingId = null;
 let calendar;
 
-// ---- Socket.IO ----
+// ── Socket.IO ──
 const socket = io();
-socket.on("connect", () => setSyncStatus(true));
+socket.on("connect",    () => setSyncStatus(true));
 socket.on("disconnect", () => setSyncStatus(false));
 
 socket.on("evento_criado", ev => {
   calendar.addEvent(toFCEvent(ev));
-  toast("Novo evento adicionado por " + (ev.criado_por || "alguém"));
+  toast("Novo evento por " + (ev.criado_por || "alguém"));
 });
 socket.on("evento_editado", ev => {
-  const existing = calendar.getEventById(ev.id);
-  if (existing) { existing.remove(); calendar.addEvent(toFCEvent(ev)); }
+  const ex = calendar.getEventById(ev.id);
+  if (ex) { ex.remove(); calendar.addEvent(toFCEvent(ev)); }
 });
 socket.on("evento_deletado", data => {
-  const existing = calendar.getEventById(data.id);
-  if (existing) existing.remove();
+  const ex = calendar.getEventById(data.id);
+  if (ex) ex.remove();
 });
 
 function setSyncStatus(on) {
   document.getElementById("syncDot").className = "sync-dot" + (on ? "" : " off");
-  document.getElementById("syncLabel").textContent = on ? "Conectado" : "Desconectado";
+  document.getElementById("syncLabel").textContent = on ? "Sincronizado" : "Desconectado";
 }
 
-// ---- FullCalendar ----
+// ── FullCalendar ──
 document.addEventListener("DOMContentLoaded", async () => {
-  buildColorRow();
   const eventos = await fetch("/api/eventos").then(r => r.json());
-
   const isMobile = window.innerWidth < 600;
 
   calendar = new FullCalendar.Calendar(document.getElementById("calendar"), {
@@ -400,24 +729,50 @@ document.addEventListener("DOMContentLoaded", async () => {
     height: "auto",
     events: eventos.map(toFCEvent),
 
-    // Clica num dia vazio → criar
-    dateClick(info) {
-      openModal(null, info.dateStr);
-    },
-    // Clica num evento → editar
-    eventClick(info) {
-      openModal(info.event);
-    },
-    // Arrasta ou redimensiona → atualiza
-    eventDrop(info) {
-      updateEventDates(info.event);
-    },
-    eventResize(info) {
-      updateEventDates(info.event);
+    dateClick(info)  { openModal(null, info.dateStr); },
+    eventClick(info) { openModal(info.event); },
+    eventDrop(info)  { updateEventDates(info.event); },
+    eventResize(info){ updateEventDates(info.event); },
+
+    eventDidMount(info) {
+      const done = info.event.extendedProps.concluido;
+
+      // Visual muted + strikethrough para concluídos
+      if (done) info.el.classList.add("ev-done");
+
+      // Botão de tick
+      const btn = document.createElement("button");
+      btn.className = "ev-tick" + (done ? " is-done" : "");
+      btn.innerHTML = done ? "✓" : "";
+      btn.title = done ? "Marcar como pendente" : "Marcar como concluído";
+      btn.type = "button";
+      btn.onclick = e => {
+        e.stopPropagation();
+        e.preventDefault();
+        toggleConcluido(info.event);
+      };
+
+      if (info.view.type.includes("list")) {
+        // Lista: substituir o ponto colorido pelo tick
+        const graphic = info.el.querySelector(".fc-list-event-graphic");
+        if (graphic) {
+          graphic.innerHTML = "";
+          graphic.style.cssText = "padding-left:14px;vertical-align:middle;padding-right:8px;";
+          graphic.appendChild(btn);
+        }
+      } else {
+        // Grade: botão sobreposto à direita do chip
+        btn.style.cssText = "position:absolute;right:3px;top:50%;transform:translateY(-50%);z-index:2;";
+        info.el.style.paddingRight = "22px";
+        info.el.appendChild(btn);
+      }
     },
   });
 
   calendar.render();
+
+  // Atualiza indicador de cor ao trocar tipo
+  document.getElementById("fTipo").addEventListener("change", updateTypeStrip);
 });
 
 function toFCEvent(ev) {
@@ -427,40 +782,64 @@ function toFCEvent(ev) {
     start: ev.start,
     end: ev.end || undefined,
     allDay: ev.allDay || false,
-    color: ev.color || COLORS[0],
+    color: ev.color || getTypeColor(ev.tipo),
     extendedProps: {
-      descricao: ev.descricao,
-      tipo: ev.tipo,
-      criado_por: ev.criado_por,
-      criado_em: ev.criado_em,
+      descricao:   ev.descricao,
+      tipo:        ev.tipo,
+      criado_por:  ev.criado_por,
+      criado_em:   ev.criado_em,
       editado_por: ev.editado_por,
-      editado_em: ev.editado_em,
+      editado_em:  ev.editado_em,
+      concluido:   ev.concluido || false,
     }
   };
 }
 
-// ---- Modal ----
+// ── Toggle concluído (via tick) ──
+async function toggleConcluido(event) {
+  const concluido = !event.extendedProps.concluido;
+  await fetch("/api/eventos/" + event.id, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      title:    event.title,
+      start:    event.start ? event.start.toISOString() : "",
+      end:      event.end   ? event.end.toISOString()   : null,
+      color:    event.backgroundColor,
+      descricao: event.extendedProps.descricao || "",
+      tipo:     event.extendedProps.tipo || "",
+      allDay:   event.allDay,
+      concluido: concluido,
+    })
+  });
+  // O broadcast do socket cuida do re-render com estado atualizado
+}
+
+// ── Modal ──
 function openNewEvent() {
   const d = new Date();
   const pad = n => String(n).padStart(2, "0");
-  const ds = `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T09:00`;
-  openModal(null, ds);
+  openModal(null, `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T09:00`);
 }
 
 function openModal(event, dateStr) {
   editingId = null;
-  document.getElementById("modalTitle").textContent = event ? "Editar evento" : "Novo evento";
-  document.getElementById("btnDelete").style.display = event ? "inline-flex" : "none";
+  isDone = false;
+
+  const isEdit = !!event;
+  document.getElementById("modalTitle").textContent = isEdit ? "Editar evento" : "Novo evento";
+  document.getElementById("btnDelete").style.display = isEdit ? "inline-flex" : "none";
+  document.getElementById("doneSection").style.display = isEdit ? "block" : "none";
   document.getElementById("metaInfo").style.display = "none";
 
-  if (event) {
+  if (isEdit) {
     editingId = event.id;
+    isDone    = event.extendedProps.concluido || false;
     document.getElementById("fTitle").value = event.title || "";
-    document.getElementById("fTipo").value = event.extendedProps.tipo || "";
+    document.getElementById("fTipo").value  = event.extendedProps.tipo || "";
     document.getElementById("fStart").value = toLocalInput(event.start);
-    document.getElementById("fEnd").value = event.end ? toLocalInput(event.end) : "";
-    document.getElementById("fDesc").value = event.extendedProps.descricao || "";
-    setColor(event.backgroundColor || COLORS[0]);
+    document.getElementById("fEnd").value   = event.end ? toLocalInput(event.end) : "";
+    document.getElementById("fDesc").value  = event.extendedProps.descricao || "";
 
     const meta = document.getElementById("metaInfo");
     const parts = [];
@@ -469,15 +848,47 @@ function openModal(event, dateStr) {
     if (parts.length) { meta.textContent = parts.join(" · "); meta.style.display = "block"; }
   } else {
     document.getElementById("fTitle").value = "";
-    document.getElementById("fTipo").value = "";
+    document.getElementById("fTipo").value  = "";
     document.getElementById("fStart").value = dateStr ? dateStr.substring(0, 16) : "";
-    document.getElementById("fEnd").value = "";
-    document.getElementById("fDesc").value = "";
-    setColor(COLORS[0]);
+    document.getElementById("fEnd").value   = "";
+    document.getElementById("fDesc").value  = "";
   }
 
+  updateDoneButton();
+  updateTypeStrip();
   document.getElementById("modalOverlay").classList.add("open");
-  setTimeout(() => document.getElementById("fTitle").focus(), 100);
+  setTimeout(() => document.getElementById("fTitle").focus(), 120);
+}
+
+function toggleDoneInModal() {
+  isDone = !isDone;
+  updateDoneButton();
+}
+
+function updateDoneButton() {
+  const btn    = document.getElementById("btnDone");
+  const circle = btn.querySelector(".done-circle");
+  const label  = btn.querySelector(".done-label");
+  if (isDone) {
+    btn.classList.add("active");
+    circle.textContent = "✓";
+    label.textContent  = "Concluído — clique para desfazer";
+  } else {
+    btn.classList.remove("active");
+    circle.textContent = "";
+    label.textContent  = "Marcar como concluído";
+  }
+}
+
+function updateTypeStrip() {
+  const tipo  = document.getElementById("fTipo").value;
+  const strip = document.getElementById("typeStrip");
+  if (tipo) {
+    strip.style.background = getTypeColor(tipo);
+    strip.classList.add("visible");
+  } else {
+    strip.classList.remove("visible");
+  }
 }
 
 function closeModal() {
@@ -489,14 +900,16 @@ async function saveEvento() {
   const title = document.getElementById("fTitle").value.trim();
   if (!title) { document.getElementById("fTitle").focus(); return; }
 
+  const tipo = document.getElementById("fTipo").value;
   const payload = {
     title,
-    start: document.getElementById("fStart").value,
-    end: document.getElementById("fEnd").value || null,
-    color: selectedColor,
+    start:    document.getElementById("fStart").value,
+    end:      document.getElementById("fEnd").value || null,
+    color:    getTypeColor(tipo),
     descricao: document.getElementById("fDesc").value.trim(),
-    tipo: document.getElementById("fTipo").value,
-    allDay: false,
+    tipo,
+    allDay:   false,
+    concluido: isDone,
   };
 
   if (editingId) {
@@ -527,37 +940,19 @@ async function updateEventDates(event) {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      title: event.title,
-      start: event.start ? event.start.toISOString() : "",
-      end: event.end ? event.end.toISOString() : null,
-      color: event.backgroundColor,
-      descricao: event.extendedProps.descricao,
-      tipo: event.extendedProps.tipo,
-      allDay: event.allDay,
+      title:    event.title,
+      start:    event.start ? event.start.toISOString() : "",
+      end:      event.end   ? event.end.toISOString()   : null,
+      color:    event.backgroundColor,
+      descricao: event.extendedProps.descricao || "",
+      tipo:     event.extendedProps.tipo || "",
+      allDay:   event.allDay,
+      concluido: event.extendedProps.concluido || false,
     })
   });
 }
 
-// ---- Color picker ----
-function buildColorRow() {
-  const row = document.getElementById("colorRow");
-  COLORS.forEach(c => {
-    const d = document.createElement("div");
-    d.className = "color-opt" + (c === selectedColor ? " selected" : "");
-    d.style.background = c;
-    d.onclick = () => setColor(c);
-    row.appendChild(d);
-  });
-}
-
-function setColor(c) {
-  selectedColor = c;
-  document.querySelectorAll(".color-opt").forEach(d => {
-    d.classList.toggle("selected", d.style.background === c || d.style.backgroundColor === c);
-  });
-}
-
-// ---- Helpers ----
+// ── Helpers ──
 function toLocalInput(date) {
   if (!date) return "";
   const d = new Date(date);
@@ -569,10 +964,9 @@ function toast(msg) {
   const t = document.getElementById("toast");
   t.textContent = msg;
   t.classList.add("show");
-  setTimeout(() => t.classList.remove("show"), 3000);
+  setTimeout(() => t.classList.remove("show"), 3500);
 }
 
-// Fecha modal clicando fora
 document.getElementById("modalOverlay").addEventListener("click", e => {
   if (e.target === document.getElementById("modalOverlay")) closeModal();
 });

@@ -91,6 +91,7 @@ def api_criar_evento():
         "tipo":       data.get("tipo", ""),
         "criado_por": session.get("nome", ""),
         "criado_em":  datetime.now().strftime("%d/%m/%Y %H:%M"),
+        "concluido":  data.get("concluido", False),
     }
     events = load_events()
     events.append(evento)
@@ -116,6 +117,7 @@ def api_editar_evento(evento_id):
                 "color":     data.get("color", ev.get("color", "#3B6E3A")),
                 "descricao": data.get("descricao", ev.get("descricao", "")),
                 "tipo":      data.get("tipo", ev.get("tipo", "")),
+                "concluido": data.get("concluido", ev.get("concluido", False)),
                 "editado_por": session.get("nome", ""),
                 "editado_em":  datetime.now().strftime("%d/%m/%Y %H:%M"),
             })
