@@ -2,7 +2,11 @@
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="VEK" />
+  <meta name="theme-color" content="#252b22" />
   <title>Calendario VEK</title>
   <link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/index.global.min.css" rel="stylesheet" />
   <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/index.global.min.js"></script>
@@ -15,6 +19,7 @@
       color: #d4e0cc;
       font-family: 'Segoe UI', system-ui, sans-serif;
       min-height: 100vh;
+      min-height: 100dvh;
     }
 
     /* --- NAVBAR --- */
@@ -23,8 +28,12 @@
       align-items: center;
       justify-content: space-between;
       padding: 14px 28px;
+      padding-top: calc(14px + env(safe-area-inset-top));
       background: #252b22;
       border-bottom: 1px solid #3b4636;
+      position: sticky;
+      top: 0;
+      z-index: 200;
     }
     .navbar .logo { font-size: 1.3rem; font-weight: 700; color: #8fbf5a; letter-spacing: 2px; }
     .navbar .right { display: flex; align-items: center; gap: 18px; font-size: 0.85rem; color: #7a8a72; }
@@ -41,6 +50,7 @@
     /* --- CALENDAR WRAPPER --- */
     .cal-wrapper {
       padding: 24px 28px;
+      padding-bottom: calc(24px + env(safe-area-inset-bottom));
     }
     #calendar {
       background: #252b22;
@@ -71,7 +81,9 @@
     .modal-overlay {
       display: none;
       position: fixed; inset: 0;
-      background: rgba(0,0,0,.6);
+      background: rgba(0,0,0,.65);
+      -webkit-backdrop-filter: blur(3px);
+      backdrop-filter: blur(3px);
       z-index: 1000;
       align-items: center;
       justify-content: center;
@@ -85,7 +97,13 @@
       width: 100%;
       max-width: 440px;
       position: relative;
+      animation: modalIn 0.22s ease;
     }
+    @keyframes modalIn {
+      from { opacity: 0; transform: scale(0.96) translateY(8px); }
+      to   { opacity: 1; transform: scale(1)    translateY(0);   }
+    }
+    .modal-handle { display: none; }
     .modal h2 { color: #8fbf5a; font-size: 1rem; margin-bottom: 22px; }
     .modal label {
       display: block;
@@ -110,15 +128,16 @@
     }
     .modal input:focus, .modal textarea:focus, .modal select:focus { border-color: #8fbf5a; }
     .modal textarea { resize: vertical; min-height: 70px; }
-    .color-row { display: flex; gap: 10px; margin-bottom: 16px; }
+    .color-row { display: flex; gap: 10px; margin-bottom: 16px; flex-wrap: wrap; }
     .color-opt {
       width: 28px; height: 28px; border-radius: 50%;
       cursor: pointer; border: 2px solid transparent;
-      transition: border-color .15s;
+      transition: border-color .15s, transform .1s;
     }
+    .color-opt:active { transform: scale(0.85); }
     .color-opt.selected { border-color: #fff; }
     .modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 4px; }
-    .btn { padding: 9px 20px; border-radius: 7px; font-size: 0.88rem; font-weight: 600; cursor: pointer; border: none; }
+    .btn { padding: 9px 20px; border-radius: 7px; font-size: 0.88rem; font-weight: 600; cursor: pointer; border: none; transition: background .15s; }
     .btn-primary { background: #4e7c2a; color: #fff; }
     .btn-primary:hover { background: #5e9433; }
     .btn-danger { background: #7a3030; color: #fff; }
@@ -129,7 +148,9 @@
       position: absolute; top: 14px; right: 16px;
       background: none; border: none; color: #7a8a72;
       font-size: 1.3rem; cursor: pointer; line-height: 1;
+      padding: 4px 8px;
     }
+    .modal .close-btn:hover { color: #d4e0cc; }
     .meta-info { font-size: 0.75rem; color: #5a6a52; margin-bottom: 16px; }
 
     /* --- TOAST --- */
@@ -140,16 +161,136 @@
       font-size: 0.85rem; opacity: 0;
       transition: opacity .3s;
       pointer-events: none; z-index: 9999;
+      white-space: nowrap;
+      max-width: calc(100vw - 40px);
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
     #toast.show { opacity: 1; }
+
+    /* --- FAB (novo evento — visível só no mobile) --- */
+    .fab {
+      display: none;
+      position: fixed;
+      bottom: calc(24px + env(safe-area-inset-bottom));
+      right: 20px;
+      width: 56px; height: 56px;
+      background: #4e7c2a;
+      color: #fff;
+      border: none;
+      border-radius: 50%;
+      font-size: 2rem;
+      line-height: 1;
+      cursor: pointer;
+      z-index: 500;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 4px 20px rgba(0,0,0,.5), 0 0 0 1px rgba(143,191,90,.2);
+      transition: background .15s, transform .1s;
+    }
+    .fab:active { transform: scale(0.91); }
+
+    /* ===== MOBILE ===== */
+    @media (max-width: 600px) {
+
+      /* Navbar compacta */
+      .navbar {
+        padding: 10px 16px;
+        padding-top: calc(10px + env(safe-area-inset-top));
+      }
+      .navbar .logo { font-size: 1.1rem; letter-spacing: 1px; }
+      .navbar .logo .logo-sub { display: none; }
+      .navbar .right { gap: 10px; }
+      .navbar .right .user {
+        max-width: 80px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        font-size: 0.78rem;
+      }
+      .sync-label { display: none; }
+      .navbar a { font-size: 0.8rem; }
+
+      /* Calendário */
+      .cal-wrapper {
+        padding: 10px 8px;
+        padding-bottom: calc(90px + env(safe-area-inset-bottom));
+      }
+      #calendar { padding: 10px 6px; border-radius: 10px; }
+
+      /* FullCalendar mobile */
+      .fc .fc-toolbar-title { font-size: 0.9rem; }
+      .fc .fc-button { padding: 5px 9px !important; font-size: 0.73rem !important; }
+      .fc .fc-col-header-cell-cushion { font-size: 0.7rem; }
+      .fc .fc-daygrid-day-number { font-size: 0.75rem; }
+      .fc-event { font-size: 0.7rem !important; padding: 1px 4px !important; }
+      .fc .fc-list-event td { padding: 8px 10px; }
+      .fc .fc-list-day-cushion { padding: 8px 12px; font-size: 0.8rem; }
+
+      /* Modal → bottom sheet */
+      .modal-overlay { align-items: flex-end; }
+      .modal {
+        border-radius: 20px 20px 0 0;
+        border-bottom: none;
+        padding: 0 20px calc(28px + env(safe-area-inset-bottom));
+        max-height: 93dvh;
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+        animation: modalSlideUp 0.32s cubic-bezier(0.32, 0.72, 0, 1);
+        max-width: 100%;
+      }
+      .modal-handle {
+        display: block;
+        width: 40px; height: 4px;
+        background: #4a5645;
+        border-radius: 2px;
+        margin: 14px auto 20px;
+        flex-shrink: 0;
+      }
+      .modal h2 { margin-top: 0; }
+      .modal .close-btn { display: none; }
+
+      /* Inputs ≥16 px evita zoom no iOS */
+      .modal input, .modal textarea, .modal select {
+        font-size: 16px;
+        padding: 12px 14px;
+        margin-bottom: 14px;
+      }
+
+      /* Botões full-width empilhados */
+      .modal-actions {
+        flex-direction: column-reverse;
+        gap: 8px;
+        margin-top: 8px;
+      }
+      .modal-actions .btn {
+        width: 100%;
+        padding: 13px;
+        font-size: 0.92rem;
+        border-radius: 9px;
+      }
+      /* Bolinhas de cor maiores (toque mais fácil) */
+      .color-opt { width: 34px; height: 34px; }
+
+      /* Toast acima do FAB */
+      #toast { bottom: calc(92px + env(safe-area-inset-bottom)); }
+
+      /* FAB visível */
+      .fab { display: flex; }
+    }
+
+    @keyframes modalSlideUp {
+      from { transform: translateY(100%); opacity: 0.6; }
+      to   { transform: translateY(0);    opacity: 1;   }
+    }
   </style>
 </head>
 <body>
 
 <div class="navbar">
-  <div class="logo">VEK <span style="font-size:.75rem;color:#7a8a72;font-weight:400;letter-spacing:0">Calendario</span></div>
+  <div class="logo">VEK <span class="logo-sub" style="font-size:.75rem;color:#7a8a72;font-weight:400;letter-spacing:0">Calendario</span></div>
   <div class="right">
-    <span><span class="sync-dot" id="syncDot"></span> <span id="syncLabel">Conectado</span></span>
+    <span><span class="sync-dot" id="syncDot"></span> <span class="sync-label" id="syncLabel">Conectado</span></span>
     <span class="user">{{ nome }}</span>
     <a href="/logout">Sair</a>
   </div>
@@ -159,9 +300,13 @@
   <div id="calendar"></div>
 </div>
 
+<!-- FAB: abre modal com data de hoje (somente mobile) -->
+<button class="fab" onclick="openNewEvent()" title="Novo evento">+</button>
+
 <!-- MODAL CRIAR/EDITAR EVENTO -->
 <div class="modal-overlay" id="modalOverlay">
   <div class="modal">
+    <span class="modal-handle"></span>
     <button class="close-btn" onclick="closeModal()">×</button>
     <h2 id="modalTitle">Novo evento</h2>
 
@@ -236,10 +381,16 @@ document.addEventListener("DOMContentLoaded", async () => {
   buildColorRow();
   const eventos = await fetch("/api/eventos").then(r => r.json());
 
+  const isMobile = window.innerWidth < 600;
+
   calendar = new FullCalendar.Calendar(document.getElementById("calendar"), {
     locale: "pt-br",
-    initialView: "dayGridMonth",
-    headerToolbar: {
+    initialView: isMobile ? "listWeek" : "dayGridMonth",
+    headerToolbar: isMobile ? {
+      left: "prev,next",
+      center: "title",
+      right: "listWeek,dayGridMonth"
+    } : {
       left: "prev,next today",
       center: "title",
       right: "dayGridMonth,timeGridWeek,timeGridDay,listWeek"
@@ -289,6 +440,13 @@ function toFCEvent(ev) {
 }
 
 // ---- Modal ----
+function openNewEvent() {
+  const d = new Date();
+  const pad = n => String(n).padStart(2, "0");
+  const ds = `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T09:00`;
+  openModal(null, ds);
+}
+
 function openModal(event, dateStr) {
   editingId = null;
   document.getElementById("modalTitle").textContent = event ? "Editar evento" : "Novo evento";
