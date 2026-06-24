@@ -392,6 +392,39 @@
     }
     .modal textarea { resize: vertical; min-height: 68px; }
 
+    /* Botão Abrir no Maps */
+    .btn-maps {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 10px 13px;
+      margin: -6px 0 14px;
+      background: rgba(96,165,250,0.12);
+      border: 1px solid rgba(96,165,250,0.35);
+      border-radius: 9px;
+      color: #93C5FD;
+      font-size: 0.85rem;
+      font-weight: 600;
+      font-family: 'Inter', sans-serif;
+      cursor: pointer;
+      transition: all .15s;
+    }
+    .btn-maps:hover { background: rgba(96,165,250,0.2); color: #BFDBFE; }
+    .btn-maps:active { transform: scale(0.98); }
+
+    /* Eventos de edição obrigatória (quintas) — visual "travado" */
+    .fc-event.edit-block {
+      background: repeating-linear-gradient(
+        45deg, #6E6151, #6E6151 6px, #635747 6px, #635747 12px) !important;
+      color: #F0EADD !important;
+      cursor: default !important;
+      opacity: 0.95;
+    }
+    .fc-event.edit-block .fc-event-title::before { content: "🔒 "; }
+    .fc .fc-list-event.edit-block td { cursor: default; }
+
     /* Type indicator strip */
     .type-strip {
       display: none;
@@ -648,11 +681,23 @@
     </select>
     <div class="type-strip" id="typeStrip"></div>
 
+    <label>Edifício / Empreendimento</label>
+    <input id="fEdificio" type="text" placeholder="Ex.: Edifício X (opcional)" />
+
+    <label>Código Imoview</label>
+    <input id="fCodigo" type="text" placeholder="Ex.: AP1234 — usado para nomear a pasta" />
+
     <label>Início</label>
     <input id="fStart" type="datetime-local" />
 
     <label>Fim</label>
     <input id="fEnd" type="datetime-local" />
+
+    <label>Endereço</label>
+    <input id="fEndereco" type="text" placeholder="Endereço do compromisso (opcional)" />
+    <button class="btn-maps" id="btnMaps" type="button" style="display:none" onclick="openMaps()">
+      <span class="maps-pin">📍</span> Abrir no Google Maps
+    </button>
 
     <label>Descrição</label>
     <textarea id="fDesc" placeholder="Detalhes opcionais..."></textarea>
@@ -678,6 +723,41 @@ const TYPE_COLORS = {
 
 function getTypeColor(tipo) {
   return TYPE_COLORS[tipo] || TYPE_COLORS["Outros"];
+}
+
+// ── Edição obrigatória: toda quinta-feira (daysOfWeek 4) ──
+// Bloqueios fixos: 08:00–10:30 e 15:30–18:00. São virtuais (não salvos).
+const EDIT_BLOCKS = [
+  {
+    id: "edit-block-am", title: "Edit time", daysOfWeek: [4],
+    startTime: "08:00", endTime: "10:30",
+    display: "block", editable: false, durationEditable: false,
+    startEditable: false, classNames: ["edit-block"],
+    extendedProps: { editBlock: true },
+  },
+  {
+    id: "edit-block-pm", title: "Edit time", daysOfWeek: [4],
+    startTime: "15:30", endTime: "18:00",
+    display: "block", editable: false, durationEditable: false,
+    startEditable: false, classNames: ["edit-block"],
+    extendedProps: { editBlock: true },
+  },
+];
+
+// Limite de compromissos nas quintas: até as 15h
+const THURSDAY_LIMIT_HOUR = 15;
+function thursdayClientViolation(startStr, endStr) {
+  if (!startStr) return null;
+  const start = new Date(startStr);
+  if (isNaN(start) || start.getDay() !== 4) return null;  // 4 = quinta
+  const limite = new Date(start);
+  limite.setHours(THURSDAY_LIMIT_HOUR, 0, 0, 0);
+  const fim = endStr ? new Date(endStr) : start;
+  if (start >= limite || fim > limite) {
+    return "Quintas-feiras têm edição obrigatória a partir das 15h. "
+         + "Agende o compromisso para terminar até as 15:00.";
+  }
+  return null;
 }
 
 let isDone = false;
@@ -727,14 +807,23 @@ document.addEventListener("DOMContentLoaded", async () => {
     editable: true,
     selectable: true,
     height: "auto",
-    events: eventos.map(toFCEvent),
+    events: [...eventos.map(toFCEvent), ...EDIT_BLOCKS],
 
     dateClick(info)  { openModal(null, info.dateStr); },
-    eventClick(info) { openModal(info.event); },
-    eventDrop(info)  { updateEventDates(info.event); },
-    eventResize(info){ updateEventDates(info.event); },
+    eventClick(info) {
+      if (info.event.extendedProps.editBlock) {
+        toast("Horário de edição obrigatório (quinta-feira)");
+        return;
+      }
+      openModal(info.event);
+    },
+    eventDrop(info)  { updateEventDates(info.event, info.revert); },
+    eventResize(info){ updateEventDates(info.event, info.revert); },
 
     eventDidMount(info) {
+      // Bloqueios de edição não têm tick nem estado de concluído
+      if (info.event.extendedProps.editBlock) return;
+
       const done = info.event.extendedProps.concluido;
 
       // Visual muted + strikethrough para concluídos
@@ -773,6 +862,8 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   // Atualiza indicador de cor ao trocar tipo
   document.getElementById("fTipo").addEventListener("change", updateTypeStrip);
+  // Mostra/oculta botão do Maps conforme o endereço é digitado
+  document.getElementById("fEndereco").addEventListener("input", updateMapsButton);
 });
 
 function toFCEvent(ev) {
@@ -784,13 +875,16 @@ function toFCEvent(ev) {
     allDay: ev.allDay || false,
     color: ev.color || getTypeColor(ev.tipo),
     extendedProps: {
-      descricao:   ev.descricao,
-      tipo:        ev.tipo,
-      criado_por:  ev.criado_por,
-      criado_em:   ev.criado_em,
-      editado_por: ev.editado_por,
-      editado_em:  ev.editado_em,
-      concluido:   ev.concluido || false,
+      descricao:      ev.descricao,
+      tipo:           ev.tipo,
+      endereco:       ev.endereco || "",
+      codigo_imoview: ev.codigo_imoview || "",
+      edificio:       ev.edificio || "",
+      criado_por:     ev.criado_por,
+      criado_em:      ev.criado_em,
+      editado_por:    ev.editado_por,
+      editado_em:     ev.editado_em,
+      concluido:      ev.concluido || false,
     }
   };
 }
@@ -808,6 +902,9 @@ async function toggleConcluido(event) {
       color:    event.backgroundColor,
       descricao: event.extendedProps.descricao || "",
       tipo:     event.extendedProps.tipo || "",
+      endereco:       event.extendedProps.endereco || "",
+      codigo_imoview: event.extendedProps.codigo_imoview || "",
+      edificio:       event.extendedProps.edificio || "",
       allDay:   event.allDay,
       concluido: concluido,
     })
@@ -840,6 +937,9 @@ function openModal(event, dateStr) {
     document.getElementById("fStart").value = toLocalInput(event.start);
     document.getElementById("fEnd").value   = event.end ? toLocalInput(event.end) : "";
     document.getElementById("fDesc").value  = event.extendedProps.descricao || "";
+    document.getElementById("fEndereco").value = event.extendedProps.endereco || "";
+    document.getElementById("fCodigo").value   = event.extendedProps.codigo_imoview || "";
+    document.getElementById("fEdificio").value = event.extendedProps.edificio || "";
 
     const meta = document.getElementById("metaInfo");
     const parts = [];
@@ -852,10 +952,14 @@ function openModal(event, dateStr) {
     document.getElementById("fStart").value = dateStr ? dateStr.substring(0, 16) : "";
     document.getElementById("fEnd").value   = "";
     document.getElementById("fDesc").value  = "";
+    document.getElementById("fEndereco").value = "";
+    document.getElementById("fCodigo").value   = "";
+    document.getElementById("fEdificio").value = "";
   }
 
   updateDoneButton();
   updateTypeStrip();
+  updateMapsButton();
   document.getElementById("modalOverlay").classList.add("open");
   setTimeout(() => document.getElementById("fTitle").focus(), 120);
 }
@@ -880,6 +984,21 @@ function updateDoneButton() {
   }
 }
 
+// ── Google Maps ──
+function updateMapsButton() {
+  const end = document.getElementById("fEndereco").value.trim();
+  document.getElementById("btnMaps").style.display = end ? "flex" : "none";
+}
+
+function openMaps() {
+  const end = document.getElementById("fEndereco").value.trim();
+  if (!end) return;
+  // Abre direto a navegação (rota) no Google Maps
+  const url = "https://www.google.com/maps/dir/?api=1&destination="
+            + encodeURIComponent(end);
+  window.open(url, "_blank", "noopener");
+}
+
 function updateTypeStrip() {
   const tipo  = document.getElementById("fTipo").value;
   const strip = document.getElementById("typeStrip");
@@ -900,31 +1019,46 @@ async function saveEvento() {
   const title = document.getElementById("fTitle").value.trim();
   if (!title) { document.getElementById("fTitle").focus(); return; }
 
+  const startVal = document.getElementById("fStart").value;
+  const endVal   = document.getElementById("fEnd").value || null;
+
+  // Regra das quintas-feiras (até as 15h)
+  const viol = thursdayClientViolation(startVal, endVal);
+  if (viol) { toast(viol); return; }
+
   const tipo = document.getElementById("fTipo").value;
   const payload = {
     title,
-    start:    document.getElementById("fStart").value,
-    end:      document.getElementById("fEnd").value || null,
+    start:    startVal,
+    end:      endVal,
     color:    getTypeColor(tipo),
     descricao: document.getElementById("fDesc").value.trim(),
     tipo,
+    endereco:       document.getElementById("fEndereco").value.trim(),
+    codigo_imoview: document.getElementById("fCodigo").value.trim(),
+    edificio:       document.getElementById("fEdificio").value.trim(),
     allDay:   false,
     concluido: isDone,
   };
 
-  if (editingId) {
-    await fetch("/api/eventos/" + editingId, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload)
-    });
-  } else {
-    await fetch("/api/eventos", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload)
-    });
+  const url    = editingId ? "/api/eventos/" + editingId : "/api/eventos";
+  const method = editingId ? "PUT" : "POST";
+  const res = await fetch(url, {
+    method,
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload)
+  });
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    toast(err.error || "Não foi possível salvar.");
+    return;
   }
+
+  const saved = await res.json().catch(() => null);
+  if (saved && saved.pasta_status === "ok") toast("Evento salvo · pasta criada no OneDrive");
+  else if (saved && saved.pasta_status === "error") toast("Evento salvo · pasta no OneDrive falhou");
+
   closeModal();
 }
 
@@ -935,8 +1069,8 @@ async function deleteEvento() {
   closeModal();
 }
 
-async function updateEventDates(event) {
-  await fetch("/api/eventos/" + event.id, {
+async function updateEventDates(event, revert) {
+  const res = await fetch("/api/eventos/" + event.id, {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -946,10 +1080,18 @@ async function updateEventDates(event) {
       color:    event.backgroundColor,
       descricao: event.extendedProps.descricao || "",
       tipo:     event.extendedProps.tipo || "",
+      endereco:       event.extendedProps.endereco || "",
+      codigo_imoview: event.extendedProps.codigo_imoview || "",
+      edificio:       event.extendedProps.edificio || "",
       allDay:   event.allDay,
       concluido: event.extendedProps.concluido || false,
     })
   });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    toast(err.error || "Não foi possível mover o evento.");
+    if (typeof revert === "function") revert();
+  }
 }
 
 // ── Helpers ──
