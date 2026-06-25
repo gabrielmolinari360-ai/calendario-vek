@@ -392,6 +392,39 @@
     }
     .modal textarea { resize: vertical; min-height: 68px; }
 
+    /* Asterisco de campo obrigatório */
+    .req { color: #F87171; font-weight: 700; }
+
+    /* Diálogo de confirmação de condomínio (anti-duplicata) */
+    .cond-confirm-overlay {
+      display: none;
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,.6);
+      -webkit-backdrop-filter: blur(3px);
+      backdrop-filter: blur(3px);
+      z-index: 1100;
+      align-items: center; justify-content: center;
+      padding: 20px;
+    }
+    .cond-confirm-overlay.open { display: flex; }
+    .cond-confirm {
+      background: #3F4738;
+      border: 1px solid rgba(191,204,182,0.22);
+      border-radius: 16px;
+      padding: 22px 22px 18px;
+      width: 100%; max-width: 380px;
+      animation: modalIn 0.18s ease;
+    }
+    .cond-confirm h3 {
+      color: #F0F2ED; font-size: 0.95rem; font-weight: 600; margin: 0 0 6px;
+    }
+    .cond-confirm p {
+      color: rgba(240,242,237,0.8); font-size: 0.86rem; line-height: 1.5; margin: 0 0 16px;
+    }
+    .cond-confirm .cond-name { color: #BFCCB6; font-weight: 700; }
+    .cond-confirm-actions { display: flex; flex-direction: column; gap: 8px; }
+    .cond-confirm-actions .btn { width: 100%; padding: 12px; }
+
     /* Botão Abrir no Maps */
     .btn-maps {
       width: 100%;
@@ -681,11 +714,13 @@
     </select>
     <div class="type-strip" id="typeStrip"></div>
 
-    <label>Edifício / Empreendimento</label>
-    <input id="fEdificio" type="text" placeholder="Ex.: Edifício X (opcional)" />
+    <label>Condomínio / Edifício <span class="req" id="reqCond" style="display:none">*</span></label>
+    <input id="fCondominio" type="text" list="condoList" autocomplete="off"
+           placeholder="Ex.: Alphaville 2" />
+    <datalist id="condoList"></datalist>
 
-    <label>Código Imoview</label>
-    <input id="fCodigo" type="text" placeholder="Ex.: AP1234 — usado para nomear a pasta" />
+    <label>Código Imoview <span class="req" id="reqCod" style="display:none">*</span></label>
+    <input id="fCodigo" type="text" placeholder="Ex.: 0001 — vira o nome da pasta" />
 
     <label>Início</label>
     <input id="fStart" type="datetime-local" />
@@ -706,6 +741,18 @@
       <button class="btn btn-danger" id="btnDelete" style="display:none" onclick="deleteEvento()">Excluir</button>
       <button class="btn btn-cancel" onclick="closeModal()">Cancelar</button>
       <button class="btn btn-primary" onclick="saveEvento()">Salvar</button>
+    </div>
+  </div>
+</div>
+
+<!-- DIÁLOGO DE CONFIRMAÇÃO DE CONDOMÍNIO (anti-duplicata) -->
+<div class="cond-confirm-overlay" id="condConfirmOverlay">
+  <div class="cond-confirm">
+    <h3>Condomínio parecido encontrado</h3>
+    <p id="condConfirmMsg"></p>
+    <div class="cond-confirm-actions">
+      <button class="btn btn-primary" id="condUseExisting" type="button"></button>
+      <button class="btn btn-cancel" id="condCreateNew" type="button"></button>
     </div>
   </div>
 </div>
@@ -860,11 +907,35 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   calendar.render();
 
-  // Atualiza indicador de cor ao trocar tipo
-  document.getElementById("fTipo").addEventListener("change", updateTypeStrip);
+  // Atualiza indicador de cor + obrigatoriedade ao trocar tipo
+  document.getElementById("fTipo").addEventListener("change", () => {
+    updateTypeStrip();
+    updateReqMarks();
+  });
   // Mostra/oculta botão do Maps conforme o endereço é digitado
   document.getElementById("fEndereco").addEventListener("input", updateMapsButton);
+
+  carregarCondominios();
 });
+
+// ── Autocomplete de condomínios ──
+let condominiosConhecidos = [];
+async function carregarCondominios() {
+  try {
+    condominiosConhecidos = await fetch("/api/condominios").then(r => r.json());
+    const dl = document.getElementById("condoList");
+    dl.innerHTML = condominiosConhecidos
+      .map(n => `<option value="${n.replace(/"/g, "&quot;")}"></option>`).join("");
+  } catch (e) { /* OneDrive ainda não configurado — segue sem sugestões */ }
+}
+
+// Marca Condomínio/Código como obrigatórios quando o tipo é Venda/Locação
+function isImovel(tipo) { return tipo === "Venda" || tipo === "Locação"; }
+function updateReqMarks() {
+  const imovel = isImovel(document.getElementById("fTipo").value);
+  document.getElementById("reqCond").style.display = imovel ? "inline" : "none";
+  document.getElementById("reqCod").style.display  = imovel ? "inline" : "none";
+}
 
 function toFCEvent(ev) {
   return {
@@ -879,7 +950,7 @@ function toFCEvent(ev) {
       tipo:           ev.tipo,
       endereco:       ev.endereco || "",
       codigo_imoview: ev.codigo_imoview || "",
-      edificio:       ev.edificio || "",
+      condominio:     ev.condominio || ev.edificio || "",
       criado_por:     ev.criado_por,
       criado_em:      ev.criado_em,
       editado_por:    ev.editado_por,
@@ -904,7 +975,7 @@ async function toggleConcluido(event) {
       tipo:     event.extendedProps.tipo || "",
       endereco:       event.extendedProps.endereco || "",
       codigo_imoview: event.extendedProps.codigo_imoview || "",
-      edificio:       event.extendedProps.edificio || "",
+      condominio:     event.extendedProps.condominio || "",
       allDay:   event.allDay,
       concluido: concluido,
     })
@@ -938,8 +1009,8 @@ function openModal(event, dateStr) {
     document.getElementById("fEnd").value   = event.end ? toLocalInput(event.end) : "";
     document.getElementById("fDesc").value  = event.extendedProps.descricao || "";
     document.getElementById("fEndereco").value = event.extendedProps.endereco || "";
-    document.getElementById("fCodigo").value   = event.extendedProps.codigo_imoview || "";
-    document.getElementById("fEdificio").value = event.extendedProps.edificio || "";
+    document.getElementById("fCodigo").value     = event.extendedProps.codigo_imoview || "";
+    document.getElementById("fCondominio").value = event.extendedProps.condominio || "";
 
     const meta = document.getElementById("metaInfo");
     const parts = [];
@@ -953,12 +1024,13 @@ function openModal(event, dateStr) {
     document.getElementById("fEnd").value   = "";
     document.getElementById("fDesc").value  = "";
     document.getElementById("fEndereco").value = "";
-    document.getElementById("fCodigo").value   = "";
-    document.getElementById("fEdificio").value = "";
+    document.getElementById("fCodigo").value     = "";
+    document.getElementById("fCondominio").value = "";
   }
 
   updateDoneButton();
   updateTypeStrip();
+  updateReqMarks();
   updateMapsButton();
   document.getElementById("modalOverlay").classList.add("open");
   setTimeout(() => document.getElementById("fTitle").focus(), 120);
@@ -1027,6 +1099,24 @@ async function saveEvento() {
   if (viol) { toast(viol); return; }
 
   const tipo = document.getElementById("fTipo").value;
+  let condominio = document.getElementById("fCondominio").value.trim();
+  const codigo   = document.getElementById("fCodigo").value.trim();
+
+  // Obrigatórios para imóveis (Venda/Locação)
+  if (isImovel(tipo)) {
+    if (!condominio) { toast("Informe o Condomínio / Edifício."); document.getElementById("fCondominio").focus(); return; }
+    if (!codigo)     { toast("Informe o Código Imoview.");        document.getElementById("fCodigo").focus();     return; }
+  }
+
+  // Confirmação anti-duplicata (2ª camada): se houver condomínio parecido, perguntar
+  let condominioConfirmado = false;
+  if (isImovel(tipo) && condominio) {
+    const escolha = await checarCondominioParecido(tipo, condominio);
+    if (escolha === null) return;           // usuário fechou o diálogo → cancela o salvar
+    condominio = escolha.nome;
+    condominioConfirmado = escolha.confirmado;
+  }
+
   const payload = {
     title,
     start:    startVal,
@@ -1035,8 +1125,9 @@ async function saveEvento() {
     descricao: document.getElementById("fDesc").value.trim(),
     tipo,
     endereco:       document.getElementById("fEndereco").value.trim(),
-    codigo_imoview: document.getElementById("fCodigo").value.trim(),
-    edificio:       document.getElementById("fEdificio").value.trim(),
+    codigo_imoview: codigo,
+    condominio,
+    condominio_confirmado: condominioConfirmado,
     allDay:   false,
     concluido: isDone,
   };
@@ -1056,10 +1147,70 @@ async function saveEvento() {
   }
 
   const saved = await res.json().catch(() => null);
-  if (saved && saved.pasta_status === "ok") toast("Evento salvo · pasta criada no OneDrive");
-  else if (saved && saved.pasta_status === "error") toast("Evento salvo · pasta no OneDrive falhou");
-
+  feedbackPasta(saved);
+  if (saved && saved.condominio_final) carregarCondominios();  // atualiza autocomplete
   closeModal();
+}
+
+// Feedback pós-criação (3ª camada): confirma o caminho final da pasta
+function feedbackPasta(saved) {
+  if (!saved) return;
+  if (saved.pasta_status === "ok") {
+    const extra = saved.pasta_merged ? " (condomínio existente reaproveitado)" : " (novo condomínio)";
+    toast("✅ Pasta: " + saved.pasta_path + extra);
+  } else if (saved.pasta_status === "error") {
+    toast("Evento salvo, mas a pasta no OneDrive falhou.");
+  } else {
+    toast("Evento salvo.");
+  }
+}
+
+// Consulta o servidor por condomínio parecido e, se houver, abre o diálogo.
+// Retorna { nome, confirmado } ou null se o usuário cancelar.
+async function checarCondominioParecido(tipo, nome) {
+  let data;
+  try {
+    const q = "tipo=" + encodeURIComponent(tipo) + "&nome=" + encodeURIComponent(nome);
+    data = await fetch("/api/condominios/match?" + q).then(r => r.json());
+  } catch (e) {
+    return { nome, confirmado: true };  // sem rede de matching → segue com o digitado
+  }
+  // Match exato ou nenhum parecido → segue direto
+  if (!data || data.exato || !data.sugerir || !data.match ||
+      data.match.toLowerCase() === nome.toLowerCase()) {
+    return { nome, confirmado: true };
+  }
+  // Há um parecido → pergunta ao usuário
+  return await abrirConfirmacaoCondominio(nome, data.match);
+}
+
+function abrirConfirmacaoCondominio(digitado, existente) {
+  return new Promise(resolve => {
+    const ov   = document.getElementById("condConfirmOverlay");
+    const msg  = document.getElementById("condConfirmMsg");
+    const bUse = document.getElementById("condUseExisting");
+    const bNew = document.getElementById("condCreateNew");
+
+    msg.innerHTML = "Você digitou “" + escapeHtml(digitado) + "”. Já existe um condomínio parecido: "
+                  + "<span class='cond-name'>" + escapeHtml(existente) + "</span>. Qual usar?";
+    bUse.textContent = "Usar “" + existente + "” (existente)";
+    bNew.textContent = "Criar novo “" + digitado + "”";
+
+    function close(result) {
+      ov.classList.remove("open");
+      bUse.onclick = bNew.onclick = ov.onclick = null;
+      resolve(result);
+    }
+    bUse.onclick = () => close({ nome: existente, confirmado: true });
+    bNew.onclick = () => close({ nome: digitado,  confirmado: true });
+    ov.onclick = e => { if (e.target === ov) close(null); };  // fechar = cancelar
+    ov.classList.add("open");
+  });
+}
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, c =>
+    ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 }
 
 async function deleteEvento() {
@@ -1082,7 +1233,7 @@ async function updateEventDates(event, revert) {
       tipo:     event.extendedProps.tipo || "",
       endereco:       event.extendedProps.endereco || "",
       codigo_imoview: event.extendedProps.codigo_imoview || "",
-      edificio:       event.extendedProps.edificio || "",
+      condominio:     event.extendedProps.condominio || "",
       allDay:   event.allDay,
       concluido: event.extendedProps.concluido || false,
     })
