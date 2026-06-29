@@ -37,6 +37,14 @@ import requests
 GRAPH = "https://graph.microsoft.com/v1.0"
 
 TIPOS_IMOVEL = ("Venda", "Locação")
+
+# Onde ficam os condomínios DENTRO da pasta-base (Ribeirão Preto), por tipo.
+# Cada item é resolvido de forma flexível (ignora prefixo numérico, ex.: "2. Venda").
+TIPO_BASE_SEGMENTS = {
+    "Venda":   ["Venda", "CASAS EM CONDOMINIO"],   # 2. Venda / 2. CASAS EM CONDOMINIO
+    "Locação": ["Locação"],                         # 1. Locação
+}
+
 AUTO_THRESHOLD = 0.86   # auto-merge no servidor (quando não veio confirmado da UI)
 SUGGEST_MIN    = 0.60   # abaixo disso nem sugere
 
@@ -46,7 +54,7 @@ ROMANOS = {"i": 1, "ii": 2, "iii": 3, "iv": 4, "v": 5,
 # Caches em memória
 _token_cache       = {"value": None, "exp": 0}
 _base_cache        = {"drive_id": None, "item_id": None}
-_condo_cache       = {"value": None, "exp": 0}
+_condo_cache       = {}   # por tipo: {tipo: {"value": [...], "exp": ts}}
 _backup_read_cache = {"value": None, "exp": 0}
 _backup_lock       = threading.Lock()
 
@@ -168,20 +176,40 @@ def _find_child_folder(headers, drive_id, parent_id, name):
     return None
 
 
-def _find_tipo_folder(headers, drive_id, base_id, tipo):
+def _find_seg_folder(headers, drive_id, parent_id, seg):
     """
-    Localiza a pasta do tipo (Venda/Locação) mesmo quando ela tem prefixo/variação,
-    ex.: '2. Venda', '1. Locação'. Prioriza match exato; depois 'tipo' como token.
+    Localiza uma subpasta por nome de forma flexível: match exato normalizado;
+    senão, a pasta cujo nome CONTÉM todos os tokens do alvo (ignora prefixo
+    numérico). Ex.: 'Venda' acha '2. Venda'; 'CASAS EM CONDOMINIO' acha
+    '2. CASAS EM CONDOMINIO' (e não '1. CASAS DE RUA').
     """
-    alvo = _norm(tipo)  # ex.: "venda"
-    filhos = _list_child_folders(headers, drive_id, base_id)
-    for f in filhos:                       # 1) nome idêntico
+    alvo = _norm(seg)
+    alvo_tokens = set(alvo.split())
+    filhos = _list_child_folders(headers, drive_id, parent_id)
+    for f in filhos:
         if _norm(f["name"]) == alvo:
             return f
-    for f in filhos:                       # 2) contém o tipo como palavra ("2 venda")
-        if alvo in _norm(f["name"]).split():
+    for f in filhos:
+        if alvo_tokens and alvo_tokens.issubset(set(_norm(f["name"]).split())):
             return f
     return None
+
+
+def _tipo_base(headers, drive_id, base_id, tipo):
+    """
+    Resolve a pasta onde ficam os condomínios daquele tipo.
+    Retorna (item_id, lista_de_nomes_no_caminho). Cria segmentos faltantes.
+    """
+    seg_id, nomes = base_id, []
+    for seg in TIPO_BASE_SEGMENTS.get(tipo, [tipo]):
+        f = _find_seg_folder(headers, drive_id, seg_id, seg)
+        if f:
+            seg_id, nome = f["id"], f["name"]
+        else:
+            seg_id, _ = _ensure_folder(headers, drive_id, seg_id, seg)
+            nome = seg
+        nomes.append(nome)
+    return seg_id, nomes
 
 
 def _ensure_folder(headers, drive_id, parent_id, name):
@@ -250,38 +278,36 @@ def best_match(typed, known):
 # Listagem de condomínios conhecidos (união Venda + Locação)
 # ---------------------------------------------------------------------------
 
-def _condominios_uncached(headers, drive_id, base_id):
+def _condominios_uncached(headers, drive_id, base_id, tipo):
+    base, _ = _tipo_base(headers, drive_id, base_id, tipo)
     nomes = {}
-    for tipo in TIPOS_IMOVEL:
-        tf = _find_tipo_folder(headers, drive_id, base_id, tipo)
-        if not tf:
-            continue
-        for f in _list_child_folders(headers, drive_id, tf["id"]):
-            if not f["name"].startswith("_"):
-                nomes[f["name"]] = True
+    for f in _list_child_folders(headers, drive_id, base):
+        if not f["name"].startswith("_"):
+            nomes[f["name"]] = True
     return sorted(nomes.keys(), key=str.lower)
 
 
-def listar_condominios(force=False):
-    """Lista cacheada (TTL 5 min) p/ o autocomplete. [] se não configurado/erro."""
-    if not is_configured():
+def listar_condominios(tipo, force=False):
+    """Lista (por tipo) cacheada TTL 5 min p/ o autocomplete. [] se não imóvel/erro."""
+    if not is_configured() or tipo not in TIPOS_IMOVEL:
         return []
     now = time.time()
-    if not force and _condo_cache["value"] is not None and _condo_cache["exp"] > now:
-        return _condo_cache["value"]
+    cache = _condo_cache.get(tipo)
+    if not force and cache and cache["exp"] > now:
+        return cache["value"]
     try:
         headers = _auth_headers()
         drive_id, base_id = _resolve_base()
-        nomes = _condominios_uncached(headers, drive_id, base_id)
-        _condo_cache.update(value=nomes, exp=now + 300)
+        nomes = _condominios_uncached(headers, drive_id, base_id, tipo)
+        _condo_cache[tipo] = {"value": nomes, "exp": now + 300}
         return nomes
     except Exception:
-        return _condo_cache["value"] or []
+        return (_condo_cache.get(tipo) or {}).get("value", [])
 
 
 def sugerir_condominio(tipo, nome):
     """Para o endpoint de confirmação pré-envio. Retorna {match, score, exato}."""
-    known = listar_condominios()
+    known = listar_condominios(tipo)
     name, score, exato = best_match(nome, known)
     return {
         "match": name,
@@ -311,29 +337,24 @@ def create_event_folder(tipo, condominio, codigo, confirmado=False):
         headers = _auth_headers()
         drive_id, base_id = _resolve_base()
 
+        # Pasta-base do tipo (ex.: "2. Venda/2. CASAS EM CONDOMINIO" ou "1. Locação")
+        tipo_base_id, base_nomes = _tipo_base(headers, drive_id, base_id, tipo)
+
         nome = str(condominio).strip()
         # Auto-merge no servidor só quando a escolha NÃO veio confirmada da UI
         if not confirmado:
-            known = _condominios_uncached(headers, drive_id, base_id)
+            known = _condominios_uncached(headers, drive_id, base_id, tipo)
             cand, score, exato = best_match(nome, known)
             if cand and (exato or score >= AUTO_THRESHOLD):
                 nome = cand
 
-        # Usa a pasta de tipo existente (ex.: "2. Venda"); só cria se não houver
-        tf = _find_tipo_folder(headers, drive_id, base_id, tipo)
-        if tf:
-            tipo_id, tipo_nome = tf["id"], tf["name"]
-        else:
-            tipo_id, _ = _ensure_folder(headers, drive_id, base_id, tipo)
-            tipo_nome = tipo
-
-        cond_id, cond_nova = _ensure_folder(headers, drive_id, tipo_id, nome)
+        cond_id, cond_nova = _ensure_folder(headers, drive_id, tipo_base_id, nome)
         _ensure_folder(headers, drive_id, cond_id, str(codigo).strip())
 
-        _condo_cache["exp"] = 0  # invalida cache do autocomplete
+        _condo_cache.pop(tipo, None)  # invalida cache do autocomplete deste tipo
         return {
             "status": "ok",
-            "path": f"{tipo_nome}/{nome}/{str(codigo).strip()}",
+            "path": "/".join(base_nomes + [nome, str(codigo).strip()]),
             "condominio_final": nome,
             "merged": not cond_nova,   # True = reaproveitou condomínio existente
             "message": "Pasta criada/garantida",

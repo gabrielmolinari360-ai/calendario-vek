@@ -286,7 +286,7 @@ def api_deletar_evento(evento_id):
 def api_condominios():
     redir = require_login()
     if redir: return jsonify({"error": "unauthorized"}), 401
-    return jsonify(onedrive.listar_condominios())
+    return jsonify(onedrive.listar_condominios(request.args.get("tipo", "")))
 
 @app.route("/api/condominios/match", methods=["GET"])
 def api_condominios_match():

@@ -714,13 +714,16 @@
     </select>
     <div class="type-strip" id="typeStrip"></div>
 
-    <label>Condomínio / Edifício <span class="req" id="reqCond" style="display:none">*</span></label>
-    <input id="fCondominio" type="text" list="condoList" autocomplete="off"
-           placeholder="Ex.: Alphaville 2" />
-    <datalist id="condoList"></datalist>
+    <!-- Só aparece quando o Tipo é Venda/Locação -->
+    <div id="imovelFields" style="display:none">
+      <label>Condomínio / Edifício <span class="req">*</span></label>
+      <input id="fCondominio" type="text" list="condoList" autocomplete="off"
+             placeholder="Selecione ou digite o condomínio" />
+      <datalist id="condoList"></datalist>
 
-    <label>Código Imoview <span class="req" id="reqCod" style="display:none">*</span></label>
-    <input id="fCodigo" type="text" placeholder="Ex.: 0001 — vira o nome da pasta" />
+      <label>Código Imoview <span class="req">*</span></label>
+      <input id="fCodigo" type="text" placeholder="Ex.: 0001 — vira o nome da pasta" />
+    </div>
 
     <label>Início</label>
     <input id="fStart" type="datetime-local" />
@@ -907,34 +910,37 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   calendar.render();
 
-  // Atualiza indicador de cor + obrigatoriedade ao trocar tipo
+  // Ao trocar o tipo: atualiza cor, mostra/oculta campos de imóvel e carrega a lista do tipo
   document.getElementById("fTipo").addEventListener("change", () => {
     updateTypeStrip();
-    updateReqMarks();
+    updateImovelFields();
   });
   // Mostra/oculta botão do Maps conforme o endereço é digitado
   document.getElementById("fEndereco").addEventListener("input", updateMapsButton);
-
-  carregarCondominios();
 });
 
-// ── Autocomplete de condomínios ──
+// ── Autocomplete de condomínios (por tipo) ──
 let condominiosConhecidos = [];
-async function carregarCondominios() {
+async function carregarCondominios(tipo) {
+  const dl = document.getElementById("condoList");
+  dl.innerHTML = "";
+  condominiosConhecidos = [];
+  if (!isImovel(tipo)) return;
   try {
-    condominiosConhecidos = await fetch("/api/condominios").then(r => r.json());
-    const dl = document.getElementById("condoList");
+    condominiosConhecidos = await fetch("/api/condominios?tipo=" + encodeURIComponent(tipo)).then(r => r.json());
     dl.innerHTML = condominiosConhecidos
       .map(n => `<option value="${n.replace(/"/g, "&quot;")}"></option>`).join("");
   } catch (e) { /* OneDrive ainda não configurado — segue sem sugestões */ }
 }
 
-// Marca Condomínio/Código como obrigatórios quando o tipo é Venda/Locação
 function isImovel(tipo) { return tipo === "Venda" || tipo === "Locação"; }
-function updateReqMarks() {
-  const imovel = isImovel(document.getElementById("fTipo").value);
-  document.getElementById("reqCond").style.display = imovel ? "inline" : "none";
-  document.getElementById("reqCod").style.display  = imovel ? "inline" : "none";
+
+// Mostra os campos Condomínio/Código só para imóveis e carrega a lista daquele tipo
+function updateImovelFields() {
+  const tipo = document.getElementById("fTipo").value;
+  const imovel = isImovel(tipo);
+  document.getElementById("imovelFields").style.display = imovel ? "block" : "none";
+  carregarCondominios(tipo);
 }
 
 function toFCEvent(ev) {
@@ -1030,7 +1036,7 @@ function openModal(event, dateStr) {
 
   updateDoneButton();
   updateTypeStrip();
-  updateReqMarks();
+  updateImovelFields();
   updateMapsButton();
   document.getElementById("modalOverlay").classList.add("open");
   setTimeout(() => document.getElementById("fTitle").focus(), 120);
