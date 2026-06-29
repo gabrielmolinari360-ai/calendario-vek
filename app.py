@@ -13,9 +13,14 @@ app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY", "calendario-vek-2026")
 socketio = SocketIO(app, cors_allowed_origins="*", async_mode="threading")
 
 APP_PASS   = os.environ.get("APP_PASSWORD", "veguel2026")
-# DATA_DIR é configurável: no Railway aponte para um Volume (ex.: /data) para
-# que os eventos sobrevivam aos deploys. Em dev, cai na pasta local "data".
-DATA_DIR   = os.environ.get("DATA_DIR", os.path.join(os.path.dirname(__file__), "data"))
+# Onde os eventos são gravados. Ordem de preferência:
+#  1) DATA_DIR (se você quiser apontar manualmente)
+#  2) RAILWAY_VOLUME_MOUNT_PATH (o Railway injeta isso sozinho quando há um Volume)
+#  3) pasta local "data" (dev)
+# Assim não precisa criar a variável DATA_DIR à mão — basta ter o Volume.
+DATA_DIR   = (os.environ.get("DATA_DIR")
+              or os.environ.get("RAILWAY_VOLUME_MOUNT_PATH")
+              or os.path.join(os.path.dirname(__file__), "data"))
 DATA_FILE  = os.path.join(DATA_DIR, "eventos.json")
 
 # ---------------------------------------------------------------------------
